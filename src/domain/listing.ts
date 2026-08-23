@@ -150,7 +150,7 @@ export function requireDesktopEligibility(input: CreateListingInput): Eligibilit
   if (!input.eligibility) {
     throw new ListingValidationError(
       "eligibility_required",
-      "desktop listings fail closed without a Berthos doctor attestation",
+      "desktop listings fail closed without a Berthos GET /v1/eligibility attestation",
     );
   }
   if (!input.eligibility.ok) {

@@ -7,8 +7,8 @@ import type {
 
 /**
  * x402 facilitator: POST /verify (read-only) then POST /settle.
- * Tests use `TestFacilitator`. Production should wrap a live x402 facilitator
- * (Coinbase / x402.org) — see adapters/http-facilitator.ts.
+ * Tests use `TestFacilitator` (default). A live facilitator is
+ * `LiveFacilitator` behind `FACILITATOR_URL` — tests must mock fetch.
  */
 export interface FacilitatorPort {
   verify(request: FacilitatorVerifyRequest): Promise<VerifyResponse>;

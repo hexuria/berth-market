@@ -1,10 +1,11 @@
 import type { EligibilityAttestation, EligibilityDecision } from "../domain/eligibility.js";
 
 /**
- * Berthos doctor client. This repo never runs isolation; it only stores
- * (and optionally re-checks) the attestation result.
+ * Berthos eligibility client. This repo never runs isolation; it only stores
+ * (and optionally re-checks) `GET /v1/eligibility`.
  *
- * Fail-closed: missing, expired, or unreachable doctor → ineligible.
+ * Fail-closed: missing, stale, `ok=false`, `class=laptop`, unreachable node,
+ * or stale/missing guest image labels → ineligible.
  */
 export interface EligibilityClient {
   verify(attestation: EligibilityAttestation | undefined): Promise<EligibilityDecision>;
