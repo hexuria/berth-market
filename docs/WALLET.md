@@ -87,6 +87,8 @@ npm run sepolia-loop
 
 Amount is 1000 atomic USDC ($0.001). This is **testnet**, not mainnet. Do not set these vars in CI.
 
+The settle path is `sepolia-loop` → Hono 402 → EIP-3009 sign → `LiveFacilitator` `POST /settle`. It is **not** `cast send` and not a payer-submitted `transfer()`. On Basescan the tx `from` is the facilitator relayer, `to` is Sepolia USDC, method is `transferWithAuthorization`, and the ERC-20 Transfer is 1000 atomic to `STAGING_PAY_TO` (100% on-chain; 90/10 is receipt-only). How to tick those fields, plus two proven hashes created by `src/staging/loop.ts`: [DEMO.md — How we know this is our repo](DEMO.md#how-we-know-this-is-our-repo). Host vs buyer walkthrough: [DEMO.md](DEMO.md).
+
 Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth). Not required for the first staging loop.
 
 ### `CdpWalletAdapter` (env-flagged)
