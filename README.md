@@ -34,7 +34,9 @@ npm start              # http://127.0.0.1:8787
 
 CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `BERTHOS_LEASE_TOKEN`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI. `npm run sepolia-loop` is also opt-in: without `STAGING_PAYER_PRIVATE_KEY` and `STAGING_PAY_TO` it prints a skip and exits 0. No live Coinbase keys, no mainnet USDC.
 
-Two-role demo (host parks in [berthos](https://github.com/hexuria/berthos); buyer pays over HTTP here — no marketplace SPA): [docs/DEMO.md](docs/DEMO.md).
+Two-role demo (host parks in [berthos](https://github.com/hexuria/berthos); buyer pays over HTTP here — no marketplace SPA): [docs/DEMO.md](docs/DEMO.md). Browser UI: [hexuria/berth-web](https://github.com/hexuria/berth-web) on Vite `:5173` / `:5174`. This process answers `OPTIONS` and loopback CORS so that UI can call `:8787` without a proxy.
+
+New listings that omit `price.network` (and quotes for those listings) default to **Base Sepolia** (`eip155:84532`). A listing that already sets `eip155:8453` is stored and quoted as mainnet — it is not rewritten.
 
 ## List an HTTP endpoint
 
@@ -55,7 +57,7 @@ curl -s http://127.0.0.1:8787/listings -X POST \
   }'
 ```
 
-`price.amount` is atomic USDC (6 decimals). Staging default `"1000"` is $0.001. Mainnet listings still accept `eip155:8453`.
+`price.amount` is atomic USDC (6 decimals). Staging default `"1000"` is $0.001. Omit `price.network` and the listing is stored as `eip155:84532`. Mainnet listings still accept an explicit `eip155:8453` and keep that network on later quotes.
 
 MCP uses `kind: "mcp"` and `endpoint.tool`. Desktop uses `kind: "desktop.linux"` after a green Berthos doctor — see below and [docs/LISTING.md](docs/LISTING.md).
 
@@ -140,7 +142,7 @@ curl -s http://127.0.0.1:8787/listings -X POST \
   -d '{
     "kind": "desktop.linux",
     "title": "gpu-box.session",
-    "price": { "amount": "5000000", "asset": "USDC", "network": "eip155:8453" },
+    "price": { "amount": "5000000", "asset": "USDC", "network": "eip155:84532" },
     "payTo": "0x1111111111111111111111111111111111111111",
     "class": "vm-guest",
     "fulfillment": {
@@ -209,10 +211,47 @@ curl -s http://127.0.0.1:8787/receipts/RECEIPT_ID/end -X POST
 
 If the node is down, ineligible, `class=laptop`, or already leased, invoke is 4xx and the agent is not debited.
 
+## Browser CORS (berth-web)
+
+[berth-web](https://github.com/hexuria/berth-web) runs on Vite `http://127.0.0.1:5173` (or `:5174` if 5173 is taken). A browser on that origin cannot read `:8787` unless this process answers **CORS + OPTIONS**. `curl` never needed that — `OPTIONS /listings` used to 404.
+
+Default `CORS_ORIGIN` is the Vite loopback list (not `*`):
+
+`http://127.0.0.1:5173`, `http://127.0.0.1:5174`, `http://localhost:5173`, `http://localhost:5174`
+
+```bash
+# production / extra origins — comma list. Do not set * unless you mean it.
+export CORS_ORIGIN=https://app.example,http://127.0.0.1:5173
+npm start
+```
+
+Allowed request headers include `Content-Type` and `PAYMENT-SIGNATURE`. `PAYMENT-REQUIRED` and `PAYMENT-RESPONSE` are exposed so the page can read x402 quotes.
+
+**Berthos** (`:7432`) is a different process. This repo does not add Docker or change that node. Until the node allows the web origin, point berth-web at a same-origin Vite proxy instead of `VITE_BERTHOS_URL=http://127.0.0.1:7432`:
+
+```ts
+// berth-web vite.config.ts — optional same-origin proxy
+server: {
+  proxy: {
+    "/market": {
+      target: "http://127.0.0.1:8787",
+      rewrite: (path) => path.replace(/^\/market/, ""),
+    },
+    "/berthos": {
+      target: "http://127.0.0.1:7432",
+      rewrite: (path) => path.replace(/^\/berthos/, ""),
+    },
+  },
+}
+```
+
+Then `VITE_MARKET_URL` / `VITE_BERTHOS_URL` can be `/market` and `/berthos`. Prefer CORS on this server for the market; the proxy is the documented workaround for the node.
+
 ## API
 
 | Method | Path                       | Purpose                                      |
 | ------ | -------------------------- | -------------------------------------------- |
+| OPTIONS| `/*`                       | CORS preflight (Vite loopback by default)    |
 | POST   | `/listings`                | Create listing (validates kind + eligibility)|
 | GET    | `/listings`                | Catalog                                      |
 | GET    | `/listings/:id/invoke`     | 402 quote or paid fulfillment + receipt      |

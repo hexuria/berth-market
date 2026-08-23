@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  BASE_CAIP2,
+  BASE_SEPOLIA_CAIP2,
   isEvmAddress,
   parseAtomic,
   parseListingNetwork,
@@ -39,7 +39,7 @@ const evmAddress = z
 
 const networkSchema = z
   .string()
-  .default(BASE_CAIP2)
+  .default(BASE_SEPOLIA_CAIP2)
   .transform((value, ctx) => {
     try {
       return parseListingNetwork(value);

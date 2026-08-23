@@ -11,7 +11,7 @@
  */
 
 import {
-  BASE_CAIP2,
+  BASE_SEPOLIA_CAIP2,
   usdcAddressFor,
   usdcEip712For,
   type SupportedCaip2,
@@ -114,7 +114,7 @@ export function defaultUsdcRequirements(input: {
   listingId?: string;
   network?: X402Network;
 }): PaymentRequirements {
-  const network = input.network ?? BASE_CAIP2;
+  const network = input.network ?? BASE_SEPOLIA_CAIP2;
   const eip712 = usdcEip712For(network);
   return {
     scheme: "exact",

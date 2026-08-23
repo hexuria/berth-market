@@ -1,6 +1,8 @@
 # Two-role demo
 
-This is the honest walkthrough. There is **no polished spend/earn app** in this repo. The market surface is HTTP on `:8787` (`npm start`) plus two scripts (`npm run earn-loop`, `npm run sepolia-loop`). Isolation lives in **[hexuria/berthos](https://github.com/hexuria/berthos)**. The existing human console and `berth view` live in **[codeitlikemiley/berth](https://github.com/codeitlikemiley/berth)** — guest view/MCP is being added on berthos; do not expect that UI here.
+This is the honest walkthrough. The market surface is HTTP on `:8787` (`npm start`) plus two scripts (`npm run earn-loop`, `npm run sepolia-loop`). The public host/buyer page is **[hexuria/berth-web](https://github.com/hexuria/berth-web)** (Vite `:5173` / `:5174`). Isolation lives in **[hexuria/berthos](https://github.com/hexuria/berthos)**. The existing human console and `berth view` live in **[codeitlikemiley/berth](https://github.com/codeitlikemiley/berth)** — guest view/MCP is being added on berthos.
+
+This process answers **loopback CORS + OPTIONS** so berth-web can `fetch` `:8787` (`GET`/`POST` `/listings`, invoke, receipts). `CORS_ORIGIN` defaults to the Vite loopback ports, not `*`. `curl` never needed that; a browser on `:5174` did. Berthos `:7432` is a different server — use that node's CORS or the Vite proxy documented in the README.
 
 ```
 Role A — Host                    Role B — Buyer
@@ -12,7 +14,7 @@ never host-desktop / laptop      POST /receipts/:id/end (desktop only)
 
 | Claim                                              | Actual state                                                                                          |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Spend/earn UI                                      | HTTP + scripts. No marketplace SPA.                                                                   |
+| Spend/earn UI                                      | HTTP + scripts here. Browser page is [hexuria/berth-web](https://github.com/hexuria/berth-web) (needs CORS on this process). |
 | Host / park UI                                     | [hexuria/berthos](https://github.com/hexuria/berthos) CLI (`berth doctor`, `berth node up`, pair).     |
 | Guest view / MCP                                   | Being added on berthos. Full console + `berth view` already exist on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). |
 | Staging chain                                      | Base Sepolia `eip155:84532`. Public facilitator `https://x402.org/facilitator`.                       |
@@ -242,6 +244,13 @@ Docker is for **Role A** (berthos guest image). This repo is Node 22 + npm. You 
 - [ ] `npm ci && npm test && npm run earn-loop && npm run sepolia-loop`
 - [ ] `sepolia-loop` prints a skip and exits 0 (no `STAGING_*` keys — expected)
 - [ ] `npm start` → `curl -s http://127.0.0.1:8787/health`
+- [ ] `curl -i -X OPTIONS http://127.0.0.1:8787/listings -H 'Origin: http://127.0.0.1:5174' -H 'Access-Control-Request-Method: GET'` → **204** (not 404) + `Access-Control-Allow-Origin: http://127.0.0.1:5174`
+
+### Browser UI (optional; no Docker in this repo)
+
+- [ ] Clone [hexuria/berth-web](https://github.com/hexuria/berth-web), `VITE_MARKET_URL=http://127.0.0.1:8787 npm run dev`
+- [ ] Buyer catalog loads from this process (no `Failed to fetch`). Vite `:5173` and `:5174` are in the default CORS list.
+- [ ] Berthos from the browser needs that node's CORS or the Vite proxy in this README.
 
 ### Staging pay (optional; your throwaway key, never committed)
 

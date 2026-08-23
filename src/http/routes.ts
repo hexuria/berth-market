@@ -33,7 +33,9 @@ import {
 } from "../domain/x402.js";
 import { nowIso, newId } from "../adapters/ids.js";
 import { walletIdFromSignature } from "../adapters/test-facilitator.js";
+import type { MarketConfig } from "../config.js";
 import type { MarketDependencies } from "../deps.js";
+import { corsMiddleware } from "./cors.js";
 import { toErrorResponse } from "./errors.js";
 
 const createAgentSchema = z.object({
@@ -47,8 +49,10 @@ const fundSchema = z.object({
   amount: z.string().regex(/^\d+$/, "amount must be atomic USDC"),
 });
 
-export function createRouter(deps: MarketDependencies): Hono {
+export function createRouter(deps: MarketDependencies, config: MarketConfig): Hono {
   const app = new Hono();
+
+  app.use("*", corsMiddleware(config.corsOrigins));
 
   app.onError((error, c) => {
     const mapped = toErrorResponse(error);
@@ -60,7 +64,7 @@ export function createRouter(deps: MarketDependencies): Hono {
       ok: true,
       service: "berth-market",
       asset: "USDC",
-      network: BASE_CAIP2,
+      network: config.network,
       networks: [BASE_CAIP2, BASE_SEPOLIA_CAIP2],
       stagingNetwork: BASE_SEPOLIA_CAIP2,
       protocolCutBps: 1000,

@@ -76,6 +76,6 @@ export async function createApp(options: CreateAppOptions = {}) {
     protocolTreasury,
   };
 
-  const app = createRouter(deps);
+  const app = createRouter(deps, config);
   return { app, deps, config };
 }

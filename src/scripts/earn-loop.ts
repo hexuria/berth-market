@@ -35,7 +35,7 @@ const listed = await json(app, "POST", "/listings", {
   kind: "http",
   title: "weather.now",
   description: "Demo HTTP SKU",
-  price: { amount: "100000", asset: "USDC", network: "eip155:8453" },
+  price: { amount: "100000", asset: "USDC", network: "eip155:84532" },
   payTo: seller.wallet.address,
   endpoint: { url: "https://example.com/weather", method: "GET" },
 });

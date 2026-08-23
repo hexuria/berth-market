@@ -4,6 +4,36 @@ import { bootMarket, desktopListing, httpListing, requestJson } from "./helpers.
 const PAY_TO = "0x1111111111111111111111111111111111111111";
 
 describe("listings", () => {
+  it("defaults omitted price.network to eip155:84532 and keeps explicit mainnet", async () => {
+    const { app } = await bootMarket();
+
+    const omitted = await requestJson(app, "POST", "/listings", {
+      kind: "http",
+      title: "weather.now",
+      price: { amount: "1000", asset: "USDC" },
+      payTo: PAY_TO,
+      endpoint: { url: "https://api.example.com/weather", method: "GET" },
+    });
+    expect(omitted.status).toBe(201);
+    const created = omitted.json.listing as { id: string; price: { network: string } };
+    expect(created.price.network).toBe("eip155:84532");
+
+    const quote = await requestJson(app, "GET", `/listings/${created.id}/invoke`);
+    expect(quote.status).toBe(402);
+    const accepted = (quote.json.quote as { accepts: { network: string }[] }).accepts[0];
+    expect(accepted?.network).toBe("eip155:84532");
+
+    const mainnet = await requestJson(app, "POST", "/listings", httpListing(PAY_TO));
+    expect(mainnet.status).toBe(201);
+    const stored = mainnet.json.listing as { id: string; price: { network: string } };
+    expect(stored.price.network).toBe("eip155:8453");
+    const mainnetQuote = await requestJson(app, "GET", `/listings/${stored.id}/invoke`);
+    expect(mainnetQuote.status).toBe(402);
+    const mainnetAccepted = (mainnetQuote.json.quote as { accepts: { network: string }[] }).accepts[0];
+    expect(mainnetAccepted?.network).toBe("eip155:8453");
+    expect(JSON.stringify(mainnetQuote.json)).not.toContain("eip155:84532");
+  });
+
   it("creates and lists http and mcp SKUs", async () => {
     const { app } = await bootMarket();
 
