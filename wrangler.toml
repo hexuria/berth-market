@@ -1,0 +1,6 @@
+# Optional Cloudflare Workers deploy. Same Hono fetch as the Node adapter.
+# Persistence stays in-memory until a D1/KV MarketStore adapter exists.
+name = "berth-market"
+main = "src/worker.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
