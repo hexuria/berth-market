@@ -38,6 +38,6 @@ describe("x402 headers and money", () => {
   });
 
   it("does not construct a live CDP adapter without keys", () => {
-    expect(() => new CdpWalletAdapter()).toThrow(/CdpWalletAdapter is a documented TODO/);
+    expect(() => new CdpWalletAdapter({})).toThrow(/CdpWalletAdapter requires/);
   });
 });

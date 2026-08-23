@@ -88,7 +88,7 @@ export function desktopListing(payTo: string, extra: Record<string, unknown> = {
       ok: true,
       class: "vm",
       nodeId: "node_01",
-      attestedAt: "2026-08-23T07:00:00.000Z",
+      attestedAt: new Date().toISOString(),
       digest: "sha256:deadbeef",
       berthosUrl: "https://berthos.example",
     },

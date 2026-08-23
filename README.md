@@ -2,7 +2,7 @@
 
 Agent spend/earn layer. Lists HTTP APIs, MCP tools, and desktop SKUs; prices them in **USDC on Base**; settles via **x402 v2**.
 
-This repo is not a computer. Isolation, Docker, and hypervisors live in **[Berthos](https://github.com/hexuria/berthos)**. The market stores a Berthos doctor attestation and rejects anything that claims `class=laptop` or `host-desktop`.
+This repo is not a computer. Isolation, Docker, and hypervisors live in **[Berthos](https://github.com/hexuria/berthos)**. The market talks to a node over HTTP (`GET /v1/eligibility`) and rejects anything that claims `class=laptop` or `host-desktop`.
 
 No Berth chain. No meme token. Email / AgentMail is out of v1.
 
@@ -29,7 +29,7 @@ npm run earn-loop    # one fake USDC 402 → pay → earn cycle
 npm start            # http://127.0.0.1:8787
 ```
 
-CI needs no secrets. The default adapters are in-memory + a test x402 facilitator.
+CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI.
 
 ## List an HTTP endpoint
 
@@ -52,7 +52,7 @@ curl -s http://127.0.0.1:8787/listings -X POST \
 
 `price.amount` is atomic USDC (6 decimals). `"100000"` is $0.10.
 
-MCP uses `kind: "mcp"` and `endpoint.tool`. Desktop uses `kind: "desktop.linux"` plus a Berthos doctor attestation — see [docs/LISTING.md](docs/LISTING.md).
+MCP uses `kind: "mcp"` and `endpoint.tool`. Desktop uses `kind: "desktop.linux"` after a green Berthos doctor — see below and [docs/LISTING.md](docs/LISTING.md).
 
 ## How an agent pays
 
@@ -77,13 +77,59 @@ On success: `200`, `PAYMENT-RESPONSE`, and a receipt that splits 90/10.
 
 ## How this talks to Berthos
 
-[Berthos](https://github.com/hexuria/berthos) is the VM/server computer-session node. Isolated guests only.
+[Berthos](https://github.com/hexuria/berthos) is the VM/server computer-session node. Isolated guests only. This market **does not** run Docker or a hypervisor.
 
-- A desktop listing includes `fulfillment.berthosUrl` (where the node lives) and `eligibility` (what `doctor` already proved).
-- This market **does not** run isolation. It **stores** the attestation and **fails closed** if it is missing, `ok: false`, or the doctor is unreachable.
-- `EligibilityClient` is a port. Tests use `MemoryEligibilityClient`. Production uses `HttpBerthosEligibilityClient` (`BERTHOS_URL` + `/doctor`).
+Set **`BERTHOS_URL`** to the node's loopback HTTP (default `http://127.0.0.1:7432`). When it is set, desktop listings are re-checked with `HttpBerthosEligibilityClient` against `GET $BERTHOS_URL/v1/eligibility`. Leave it unset in CI — tests use `MemoryEligibilityClient`.
 
-If a listing claims `class=laptop` or `host-desktop`, it is rejected even when the rest of the payload is well-formed.
+The live body is the Berthos doctor report: `ok` / `eligible`, `class`, `checks[]`, and guest image labels (`berthos.guest.version=v1`, `berthos.desktop=xvfb-openbox-chromium`, `berthos.egress.policy=default-deny`). Desktop listings **fail closed** when the client cannot reach the node, `ok` is false, `class` is `laptop` (or `host-desktop`), or the attestation / image labels are stale or missing.
+
+### Desktop listing after `berth doctor`
+
+On the node host (not in this repo):
+
+```bash
+docker build -t berthos-linux-desktop:v1 images/linux-desktop   # labeled guest
+berth doctor --json                                             # must be eligible
+berth node up                                                   # http://127.0.0.1:7432
+```
+
+Then point the market at that node and list a SKU. The market GETs `/v1/eligibility` again; a red doctor or an unreachable node is a `400`, not a retry.
+
+```bash
+export BERTHOS_URL=http://127.0.0.1:7432
+
+# Optional: inspect the same shape the market will store
+curl -s "$BERTHOS_URL/v1/eligibility"
+
+curl -s http://127.0.0.1:8787/wallets/treasury -X POST \
+  -H 'content-type: application/json' \
+  -d '{"label":"gpu-seller"}'
+
+curl -s http://127.0.0.1:8787/listings -X POST \
+  -H 'content-type: application/json' \
+  -d '{
+    "kind": "desktop.linux",
+    "title": "gpu-box.session",
+    "price": { "amount": "5000000", "asset": "USDC", "network": "eip155:8453" },
+    "payTo": "0x1111111111111111111111111111111111111111",
+    "class": "vm-guest",
+    "fulfillment": {
+      "berthosUrl": "http://127.0.0.1:7432",
+      "sku": "linux-gpu-1",
+      "nodeId": "node_01"
+    },
+    "eligibility": {
+      "source": "berthos.doctor",
+      "ok": true,
+      "class": "vm-guest",
+      "nodeId": "node_01",
+      "attestedAt": "2026-08-23T07:00:00.000Z",
+      "berthosUrl": "http://127.0.0.1:7432"
+    }
+  }'
+```
+
+`kind` / `class` of `laptop` or `host-desktop` is rejected even when the rest of the payload is well-formed.
 
 ## API
 
@@ -102,7 +148,7 @@ If a listing claims `class=laptop` or `host-desktop`, it is rejected even when t
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — ports/adapters, x402, money
 - [docs/LISTING.md](docs/LISTING.md) — schema: kind, price, payTo, policy, eligibility
-- [docs/WALLET.md](docs/WALLET.md) — treasury vs agent, caps, CDP TODO
+- [docs/WALLET.md](docs/WALLET.md) — treasury vs agent, caps, env-flagged CDP adapter
 
 ## Design
 

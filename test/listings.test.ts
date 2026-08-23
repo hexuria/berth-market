@@ -38,6 +38,16 @@ describe("listings", () => {
     expect((res.json.error as { code: string }).code).toBe("forbidden_class");
   });
 
+  it("rejects host-desktop listings", async () => {
+    const { app } = await bootMarket();
+    const res = await requestJson(app, "POST", "/listings", {
+      ...httpListing(PAY_TO),
+      kind: "host-desktop",
+    });
+    expect(res.status).toBe(400);
+    expect((res.json.error as { code: string }).code).toBe("forbidden_class");
+  });
+
   it("rejects host-desktop class on an otherwise valid listing", async () => {
     const { app } = await bootMarket();
     const res = await requestJson(app, "POST", "/listings", {
@@ -76,7 +86,7 @@ describe("listings", () => {
           source: "berthos.doctor",
           ok: true,
           class: "laptop",
-          attestedAt: "2026-08-23T07:00:00.000Z",
+          attestedAt: new Date().toISOString(),
         },
       }),
     );

@@ -1,3 +1,6 @@
+import { CdpWalletAdapter } from "./adapters/cdp-wallet.js";
+import { HttpBerthosEligibilityClient } from "./adapters/http-eligibility.js";
+import { LiveFacilitator } from "./adapters/live-facilitator.js";
 import { MemoryEligibilityClient } from "./adapters/memory-eligibility.js";
 import { MemoryStore } from "./adapters/memory-store.js";
 import { MemoryWalletAdapter } from "./adapters/memory-wallet.js";
@@ -18,14 +21,32 @@ export interface CreateAppOptions {
   wallets?: WalletPort;
   facilitator?: FacilitatorPort;
   eligibility?: EligibilityClient;
+  env?: NodeJS.ProcessEnv;
+  fetchImpl?: typeof fetch;
 }
 
 export async function createApp(options: CreateAppOptions = {}) {
-  const config = options.config ?? loadConfig();
+  const env = options.env ?? process.env;
+  const config = options.config ?? loadConfig(env);
   const store = options.store ?? new MemoryStore();
-  const wallets = options.wallets ?? new MemoryWalletAdapter(store);
-  const facilitator = options.facilitator ?? new TestFacilitator(store);
-  const eligibility = options.eligibility ?? new MemoryEligibilityClient();
+  const wallets =
+    options.wallets ??
+    (config.walletAdapter === "cdp" ? new CdpWalletAdapter(env) : new MemoryWalletAdapter(store));
+  const facilitator =
+    options.facilitator ??
+    (config.facilitatorUrl
+      ? new LiveFacilitator(config.facilitatorUrl, options.fetchImpl ?? fetch)
+      : new TestFacilitator(store));
+  const eligibility =
+    options.eligibility ??
+    (config.berthosUrl
+      ? new HttpBerthosEligibilityClient({
+          berthosUrl: config.berthosUrl,
+          eligibilityPath: config.berthosEligibilityPath,
+          fetchImpl: options.fetchImpl ?? fetch,
+          maxAgeMs: config.attestationMaxAgeMs,
+        })
+      : new MemoryEligibilityClient({ maxAgeMs: config.attestationMaxAgeMs }));
 
   const protocolTreasury = await wallets.createTreasury({
     label: config.protocolTreasuryLabel,

@@ -16,8 +16,9 @@ export interface ListingPayout {
 /**
  * WalletPort is the only way the market moves USDC.
  *
- * Production target: Coinbase Agentic Wallet / CDP (`CdpWalletAdapter`).
- * Tests and local loops use `MemoryWalletAdapter` — no CDP keys required.
+ * Production target: Coinbase Agentic Wallet / CDP (`CdpWalletAdapter`),
+ * env-flagged with `WALLET_ADAPTER=cdp`. Tests and local loops use
+ * `MemoryWalletAdapter` — no CDP keys required.
  */
 export interface WalletPort {
   createTreasury(input?: { label?: string; address?: string }): Promise<Wallet>;

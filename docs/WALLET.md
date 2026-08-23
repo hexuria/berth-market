@@ -60,11 +60,11 @@ Routes never talk to Coinbase directly. They call `WalletPort`.
 
 In-process balances. No keys. Used by tests and local loops.
 
-### `CdpWalletAdapter` (TODO)
+### `CdpWalletAdapter` (env-flagged)
 
 Production target: [Coinbase Developer Platform](https://docs.cdp.coinbase.com/) / Agentic Wallet.
 
-Do **not** add `@coinbase/cdp-sdk` as a runtime dependency until this adapter is wired. The constructor throws unless you are ready to implement it, and it still throws if `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are missing.
+The adapter **implements `WalletPort` and compiles**. It is selected only when `WALLET_ADAPTER=cdp` **and** `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set. Default boot and every CI test use `MemoryWalletAdapter`. Do **not** add `@coinbase/cdp-sdk` as a runtime dependency in this slice — live CDP calls are not made without that SDK, so a flagged adapter without it returns `cdp_not_live` rather than inventing a second ledger.
 
 Intended mapping — wrap CDP, do not invent a second ledger:
 
