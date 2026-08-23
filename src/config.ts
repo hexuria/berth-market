@@ -10,6 +10,8 @@ export interface MarketConfig {
   protocolTreasuryLabel: string;
   berthosUrl?: string;
   berthosEligibilityPath: string;
+  berthosLeaseToken?: string;
+  berthosPairCode?: string;
   facilitatorUrl?: string;
   walletAdapter: WalletAdapterName;
   attestationMaxAgeMs: number;
@@ -27,6 +29,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MarketConfig {
     protocolTreasuryLabel: env.PROTOCOL_TREASURY_LABEL ?? "berth-protocol",
     berthosUrl: env.BERTHOS_URL || undefined,
     berthosEligibilityPath: env.BERTHOS_ELIGIBILITY_PATH ?? BERTHOS_ELIGIBILITY_PATH,
+    berthosLeaseToken: env.BERTHOS_LEASE_TOKEN || undefined,
+    berthosPairCode: env.BERTHOS_PAIR_CODE || undefined,
     facilitatorUrl: env.FACILITATOR_URL || undefined,
     walletAdapter: walletAdapter === "cdp" ? "cdp" : "memory",
     attestationMaxAgeMs: Number.isFinite(maxAge) && maxAge > 0 ? maxAge : DEFAULT_ATTESTATION_MAX_AGE_MS,

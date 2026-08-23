@@ -25,6 +25,15 @@ export interface Receipt {
   transaction: string;
   network: string;
   createdAt: string;
+  /** Berthos lease id when `kind=desktop.linux` was fulfilled. */
+  leaseId?: string;
+  berthosUrl?: string;
+  leaseState?: "live" | "ended";
+  /** Wall-clock seconds the guest was held. Not a second charge. */
+  occupancySeconds?: number;
+  billedSeconds?: number;
+  occupancyMinSeconds?: number;
+  occupancyUnit?: "seconds";
 }
 
 export class WalletError extends Error {

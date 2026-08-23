@@ -1,15 +1,17 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { LeaseError, type LeaseRecord } from "../domain/lease.js";
 import {
   assertAllowedClass,
   assertListingKind,
   isDesktopKind,
   parseCreateListing,
+  publicListing,
   requireDesktopEligibility,
   type Listing,
 } from "../domain/listing.js";
 import { normalizeAddress, parseAtomic } from "../domain/money.js";
-import { WalletError } from "../domain/wallet.js";
+import { WalletError, type Receipt } from "../domain/wallet.js";
 import {
   PAYMENT_REQUIRED_HEADER,
   PAYMENT_RESPONSE_HEADER,
@@ -100,12 +102,12 @@ export function createRouter(deps: MarketDependencies): Hono {
       createdAt: nowIso(),
     };
     await deps.store.putListing(listing);
-    return c.json({ listing }, 201);
+    return c.json({ listing: publicListing(listing) }, 201);
   });
 
   app.get("/listings", async (c) => {
     const listings = await deps.store.listListings();
-    return c.json({ listings });
+    return c.json({ listings: listings.map(publicListing) });
   });
 
   app.get("/listings/:id", async (c) => {
@@ -113,7 +115,7 @@ export function createRouter(deps: MarketDependencies): Hono {
     if (!listing) {
       return c.json({ error: { code: "not_found", message: "listing not found" } }, 404);
     }
-    return c.json({ listing });
+    return c.json({ listing: publicListing(listing) });
   });
 
   app.get("/listings/:id/invoke", async (c) => {
@@ -155,66 +157,91 @@ export function createRouter(deps: MarketDependencies): Hono {
       return paymentRequired(c, listing, requirements, "test facilitator requires test:<walletId>");
     }
 
-    const payout = await deps.wallets.settleListingPayment({
-      payerId,
-      sellerAddress: listing.payTo,
-      protocolAddress: deps.protocolTreasury.address,
-      amountAtomic: parseAtomic(listing.price.amount),
-    });
-
-    const settlement = await deps.facilitator.settle({
-      x402Version: X402_VERSION,
-      paymentPayload: payload,
-      paymentRequirements: requirements,
-    });
-    if (!settlement.success) {
+    if (await deps.store.hasNonce(payload.payload.authorization.nonce)) {
       return paymentRequired(
         c,
         listing,
         requirements,
-        settlement.errorReason ?? "payment settlement failed",
+        "payment already settled (replayed nonce); no second charge and no new lease",
       );
     }
 
-    const receipt = {
-      id: newId("rct"),
-      listingId: listing.id,
-      payerWalletId: payout.payer.id,
-      payerAddress: payout.payer.address,
-      sellerAddress: listing.payTo,
-      protocolAddress: deps.protocolTreasury.address,
-      amountAtomic: listing.price.amount,
-      sellerAtomic: payout.sellerAtomic.toString(),
-      protocolAtomic: payout.protocolAtomic.toString(),
-      transaction: settlement.transaction || payout.txHash,
-      network: listing.price.network,
-      createdAt: nowIso(),
-    };
-    await deps.store.putReceipt(receipt);
+    let liveLease: LeaseRecord | undefined;
+    try {
+      if (listing.kind === "desktop.linux") {
+        const prepared = await prepareDesktopLease(deps, listing);
+        if (!prepared.ok) {
+          return c.json(
+            { error: { code: prepared.code, message: prepared.message } },
+            prepared.status as 400,
+          );
+        }
+        liveLease = prepared.lease;
+      }
 
-    const paymentResponse = encodeX402Header({
-      success: true,
-      transaction: receipt.transaction,
-      network: receipt.network,
-      payer: receipt.payerAddress,
-      amount: receipt.amountAtomic,
-    });
+      const settlement = await deps.facilitator.settle({
+        x402Version: X402_VERSION,
+        paymentPayload: payload,
+        paymentRequirements: requirements,
+      });
+      if (!settlement.success) {
+        await abortLease(deps, listing, liveLease);
+        return paymentRequired(
+          c,
+          listing,
+          requirements,
+          settlement.errorReason ?? "payment settlement failed",
+        );
+      }
 
-    c.header(PAYMENT_RESPONSE_HEADER, paymentResponse);
-    return c.json({
-      ok: true,
-      listing: { id: listing.id, kind: listing.kind, title: listing.title },
-      fulfillment: {
-        status: "accepted",
-        note:
-          listing.kind === "desktop.linux"
-            ? "Desktop SKU is priced here; a Berthos node fulfills the guest session."
-            : "HTTP/MCP invoke is priced here; v1 does not proxy the upstream call.",
-        endpoint: listing.endpoint,
-        fulfillment: listing.fulfillment,
-      },
-      receipt,
-    });
+      const payout = await deps.wallets.settleListingPayment({
+        payerId,
+        sellerAddress: listing.payTo,
+        protocolAddress: deps.protocolTreasury.address,
+        amountAtomic: parseAtomic(listing.price.amount),
+      });
+
+      const receipt: Receipt = {
+        id: newId("rct"),
+        listingId: listing.id,
+        payerWalletId: payout.payer.id,
+        payerAddress: payout.payer.address,
+        sellerAddress: listing.payTo,
+        protocolAddress: deps.protocolTreasury.address,
+        amountAtomic: listing.price.amount,
+        sellerAtomic: payout.sellerAtomic.toString(),
+        protocolAtomic: payout.protocolAtomic.toString(),
+        transaction: settlement.transaction || payout.txHash,
+        network: listing.price.network,
+        createdAt: nowIso(),
+      };
+      if (liveLease) {
+        receipt.leaseId = liveLease.id;
+        receipt.berthosUrl = liveLease.berthosUrl;
+        receipt.leaseState = "live";
+        receipt.occupancyUnit = "seconds";
+      }
+      await deps.store.putReceipt(receipt);
+
+      const paymentResponse = encodeX402Header({
+        success: true,
+        transaction: receipt.transaction,
+        network: receipt.network,
+        payer: receipt.payerAddress,
+        amount: receipt.amountAtomic,
+      });
+
+      c.header(PAYMENT_RESPONSE_HEADER, paymentResponse);
+      return c.json({
+        ok: true,
+        listing: { id: listing.id, kind: listing.kind, title: listing.title },
+        fulfillment: fulfillmentBody(listing, liveLease),
+        receipt,
+      });
+    } catch (error) {
+      await abortLease(deps, listing, liveLease);
+      throw error;
+    }
   });
 
   app.post("/wallets/treasury", async (c) => {
@@ -270,6 +297,64 @@ export function createRouter(deps: MarketDependencies): Hono {
     return c.json({ receipts });
   });
 
+  app.get("/receipts/:id", async (c) => {
+    const receipt = await deps.store.getReceipt(c.req.param("id"));
+    if (!receipt) {
+      return c.json({ error: { code: "not_found", message: "receipt not found" } }, 404);
+    }
+    return c.json({ receipt });
+  });
+
+  app.post("/receipts/:id/end", async (c) => {
+    const receipt = await deps.store.getReceipt(c.req.param("id"));
+    if (!receipt) {
+      return c.json({ error: { code: "not_found", message: "receipt not found" } }, 404);
+    }
+    if (!receipt.leaseId) {
+      return c.json(
+        { error: { code: "no_lease", message: "receipt has no Berthos lease to end" } },
+        400,
+      );
+    }
+    if (receipt.leaseState === "ended") {
+      return c.json({
+        ok: true,
+        receipt,
+        occupancy: occupancyFromReceipt(receipt),
+        note: "lease already ended; occupancy is a receipt, not a second charge",
+      });
+    }
+
+    const listing = await deps.store.getListing(receipt.listingId);
+    const occupancy = await deps.leases.end({
+      leaseId: receipt.leaseId,
+      berthosUrl: receipt.berthosUrl ?? listing?.fulfillment?.berthosUrl,
+      token: listing?.fulfillment?.leaseToken,
+    });
+
+    const updated: Receipt = {
+      ...receipt,
+      leaseState: "ended",
+      occupancySeconds: occupancy.occupancySeconds,
+      billedSeconds: occupancy.billedSeconds,
+      occupancyMinSeconds: occupancy.minSeconds,
+      occupancyUnit: "seconds",
+    };
+    await deps.store.putReceipt(updated);
+    return c.json({
+      ok: true,
+      receipt: updated,
+      occupancy: {
+        seconds: occupancy.occupancySeconds,
+        billedSeconds: occupancy.billedSeconds,
+        minSeconds: occupancy.minSeconds,
+        unit: "seconds" as const,
+        chargedHere: false,
+        note: occupancy.settlement.note,
+      },
+    });
+  });
+
   return app;
 }
 
@@ -279,6 +364,107 @@ function quoteFor(listing: Listing): PaymentRequirements {
     payTo: listing.payTo,
     listingId: listing.id,
   });
+}
+
+async function prepareDesktopLease(
+  deps: MarketDependencies,
+  listing: Listing,
+): Promise<
+  | { ok: true; lease: LeaseRecord }
+  | { ok: false; code: string; message: string; status: number }
+> {
+  assertAllowedClass(listing.class, "class");
+  assertAllowedClass(listing.eligibility?.class, "eligibility.class");
+  if (isDesktopKind(listing.kind) && !listing.eligibility) {
+    return {
+      ok: false,
+      status: 400,
+      code: "eligibility_required",
+      message: "desktop listings fail closed without a Berthos GET /v1/eligibility attestation",
+    };
+  }
+  const decision = await deps.eligibility.verify(listing.eligibility);
+  if (!decision.ok) {
+    const forbidden = decision.reason?.includes("forbidden_class");
+    return {
+      ok: false,
+      status: 400,
+      code: forbidden ? "forbidden_class" : "eligibility_failed",
+      message: decision.reason ?? "desktop invoke failed Berthos doctor attestation",
+    };
+  }
+
+  try {
+    const lease = await deps.leases.create({
+      os: "linux",
+      berthosUrl: listing.fulfillment?.berthosUrl ?? listing.eligibility?.berthosUrl,
+      token: listing.fulfillment?.leaseToken,
+    });
+    return { ok: true, lease };
+  } catch (error) {
+    if (error instanceof LeaseError) {
+      return { ok: false, code: error.code, message: error.message, status: error.status };
+    }
+    const message = error instanceof Error ? error.message : "lease create failed";
+    return { ok: false, status: 400, code: "lease_create_failed", message };
+  }
+}
+
+async function abortLease(
+  deps: MarketDependencies,
+  listing: Listing,
+  lease: LeaseRecord | undefined,
+): Promise<void> {
+  if (!lease) return;
+  try {
+    await deps.leases.end({
+      leaseId: lease.id,
+      berthosUrl: lease.berthosUrl ?? listing.fulfillment?.berthosUrl,
+      token: listing.fulfillment?.leaseToken,
+    });
+  } catch {
+    // Best-effort compensation: do not hide the original settle/wallet error.
+  }
+}
+
+function fulfillmentBody(listing: Listing, lease: LeaseRecord | undefined) {
+  if (listing.kind === "desktop.linux" && lease) {
+    return {
+      status: "leased",
+      leaseId: lease.id,
+      berthosUrl: lease.berthosUrl,
+      os: lease.os,
+      state: lease.state,
+      occupancyUnit: "seconds" as const,
+      note: "Isolated Linux guest is live on the Berthos node. End the lease to store occupancy seconds; they are not a second charge.",
+    };
+  }
+  return {
+    status: "accepted",
+    note:
+      listing.kind === "desktop.linux"
+        ? "Desktop SKU is priced here; a Berthos node fulfills the guest session."
+        : "HTTP/MCP invoke is priced here; v1 does not proxy the upstream call.",
+    endpoint: listing.endpoint,
+    fulfillment: listing.fulfillment
+      ? {
+          berthosUrl: listing.fulfillment.berthosUrl,
+          sku: listing.fulfillment.sku,
+          nodeId: listing.fulfillment.nodeId,
+        }
+      : undefined,
+  };
+}
+
+function occupancyFromReceipt(receipt: Receipt) {
+  return {
+    seconds: receipt.occupancySeconds ?? 0,
+    billedSeconds: receipt.billedSeconds ?? receipt.occupancySeconds ?? 0,
+    minSeconds: receipt.occupancyMinSeconds,
+    unit: "seconds" as const,
+    chargedHere: false,
+    note: "v1 is pay-then-occupy. Occupancy seconds are a receipt, not a second x402 charge.",
+  };
 }
 
 function paymentRequired(
