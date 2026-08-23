@@ -27,7 +27,7 @@ Isolation, Docker, and hypervisors live in [Berthos](https://github.com/hexuria/
 | ------------------------------ | ---------------------------------------- |
 | Catalog of SKUs                | Guest VMs, Docker, hypervisor            |
 | x402 quotes and receipts       | A Berth chain or meme token              |
-| USDC on Base (`eip155:8453`)   | Email / AgentMail                        |
+| USDC on Base (`eip155:8453`) or Base Sepolia (`eip155:84532`) | Email / AgentMail          |
 | Stored Berthos doctor result   | Proving isolation itself                 |
 | Capped child agent wallets     | Host-desktop or laptop fulfillment       |
 
@@ -65,9 +65,18 @@ Official `@x402/hono` middleware wants a static route table. Listings here are d
 | `PAYMENT-SIGNATURE` | client → server  | `PaymentPayload`        |
 | `PAYMENT-RESPONSE`  | server → client  | `SettlementResponse`    |
 
-Scheme: `exact`. Asset: native USDC on Base (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`). Network: `eip155:8453`.
+Scheme: `exact` / EIP-3009. Listings choose a network:
 
-`TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (or `@x402/core/server` `HTTPFacilitatorClient`). Tests never call that URL unless `fetch` is mocked.
+| Network        | CAIP-2         | USDC                                         | Facilitator default                         |
+| -------------- | -------------- | -------------------------------------------- | ------------------------------------------- |
+| Base           | `eip155:8453`  | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | production facilitator (not in CI)          |
+| Base Sepolia   | `eip155:84532` | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | `https://x402.org/facilitator` (no API key) |
+
+Alias `base-sepolia` is accepted on `price.network` / `NETWORK=` and stored as `eip155:84532`. Staging traffic must not use `8453`.
+
+`TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (`POST /verify` + `POST /settle` with the v2 `{ x402Version, paymentPayload, paymentRequirements }` body). Tests never call that URL unless `fetch` is mocked.
+
+A live Sepolia payment does **not** debit `MemoryWallet`. The receipt stores the facilitator settle tx hash. On-chain USDC goes to `payTo`; 90/10 is receipt accounting until CDP spend-permissions exist.
 
 ## Money
 

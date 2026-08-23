@@ -1,7 +1,52 @@
 /** USDC on Base uses 6 decimals. Amounts in this repo are atomic units as bigint. */
 export const USDC_DECIMALS = 6;
 export const USDC_BASE_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+/** Circle USDC on Base Sepolia. Testnet only — never use this address on 8453. */
+export const USDC_BASE_SEPOLIA_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 export const BASE_CAIP2 = "eip155:8453";
+export const BASE_SEPOLIA_CAIP2 = "eip155:84532";
+
+export const SUPPORTED_CAIP2 = [BASE_CAIP2, BASE_SEPOLIA_CAIP2] as const;
+export type SupportedCaip2 = (typeof SUPPORTED_CAIP2)[number];
+
+/** Short aliases accepted on listings / NETWORK=. Always stored as CAIP-2. */
+export const NETWORK_ALIASES: Record<string, SupportedCaip2> = {
+  "eip155:8453": BASE_CAIP2,
+  "eip155:84532": BASE_SEPOLIA_CAIP2,
+  base: BASE_CAIP2,
+  "base-sepolia": BASE_SEPOLIA_CAIP2,
+};
+
+export function parseListingNetwork(value: string): SupportedCaip2 {
+  const mapped = NETWORK_ALIASES[value.trim()] ?? NETWORK_ALIASES[value.trim().toLowerCase()];
+  if (!mapped) {
+    throw new MoneyError(
+      `unsupported network "${value}". Accepts eip155:8453 (Base) and eip155:84532 / base-sepolia (Base Sepolia staging)`,
+    );
+  }
+  return mapped;
+}
+
+export function usdcAddressFor(network: SupportedCaip2): string {
+  return network === BASE_SEPOLIA_CAIP2 ? USDC_BASE_SEPOLIA_ADDRESS : USDC_BASE_ADDRESS;
+}
+
+/** EIP-712 domain for USDC `transferWithAuthorization` (x402 exact / eip3009). */
+export function usdcEip712For(_network: SupportedCaip2): { name: string; version: string } {
+  return { name: "USDC", version: "2" };
+}
+
+export function chainIdFor(network: SupportedCaip2): number {
+  return network === BASE_SEPOLIA_CAIP2 ? 84532 : 8453;
+}
+
+export function isMainnetCaip2(network: string): boolean {
+  try {
+    return parseListingNetwork(network) === BASE_CAIP2;
+  } catch {
+    return network === BASE_CAIP2 || network === "base";
+  }
+}
 
 /** 10% protocol cut, in basis points. */
 export const PROTOCOL_CUT_BPS = 1000n;

@@ -18,7 +18,9 @@ export interface ListingPayout {
  *
  * Production target: Coinbase Agentic Wallet / CDP (`CdpWalletAdapter`),
  * env-flagged with `WALLET_ADAPTER=cdp`. Tests and local loops use
- * `MemoryWalletAdapter` — no CDP keys required.
+ * `MemoryWalletAdapter` — no CDP keys required. MemoryWallet is not
+ * on-chain. Base Sepolia settle is facilitator-authoritative: the receipt
+ * stores the settle tx hash and does not pretend the in-memory ledger moved.
  */
 export interface WalletPort {
   createTreasury(input?: { label?: string; address?: string }): Promise<Wallet>;

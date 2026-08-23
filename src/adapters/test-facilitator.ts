@@ -17,7 +17,8 @@ import { newTxHash } from "./ids.js";
  *
  * Accepts signatures of the form `test:<walletId>` (or any `test:` prefix)
  * when the payload amount/asset/payTo match the quote. Replay is blocked
- * via store nonces. Does not talk to a chain.
+ * via store nonces. Does not talk to a chain. Live Sepolia settle uses
+ * `LiveFacilitator` + `npm run sepolia-loop`, not this adapter.
  */
 export class TestFacilitator implements FacilitatorPort {
   constructor(private readonly store: MarketStore) {}

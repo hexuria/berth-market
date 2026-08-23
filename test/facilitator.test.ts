@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LiveFacilitator, createFacilitator } from "../src/adapters/live-facilitator.js";
+import { LiveFacilitator, createFacilitator, joinFacilitatorPath } from "../src/adapters/live-facilitator.js";
 import { MemoryStore } from "../src/adapters/memory-store.js";
 import { TestFacilitator } from "../src/adapters/test-facilitator.js";
 import { createApp } from "../src/app.js";
@@ -82,6 +82,17 @@ describe("facilitator adapters", () => {
       "POST https://facilitator.example/verify",
       "POST https://facilitator.example/settle",
     ]);
+    expect(calls[0]?.body).toMatchObject({
+      x402Version: X402_VERSION,
+      paymentPayload: payload,
+      paymentRequirements: requirements,
+    });
+  });
+
+  it("keeps the /facilitator prefix when joining verify/settle paths", () => {
+    expect(joinFacilitatorPath("https://x402.org/facilitator", "/verify")).toBe(
+      "https://x402.org/facilitator/verify",
+    );
   });
 
   it("createApp uses LiveFacilitator only when FACILITATOR_URL is set (mocked fetch)", async () => {

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { isEvmAddress, parseAtomic } from "./money.js";
+import {
+  BASE_CAIP2,
+  isEvmAddress,
+  parseAtomic,
+  parseListingNetwork,
+  type SupportedCaip2,
+} from "./money.js";
 import type { EligibilityAttestation } from "./eligibility.js";
 import { eligibilityAttestationSchema, FORBIDDEN_CLASSES } from "./eligibility.js";
 
@@ -31,10 +37,25 @@ const evmAddress = z
   .string()
   .refine(isEvmAddress, "payTo must be a 0x-prefixed 20-byte EVM address");
 
+const networkSchema = z
+  .string()
+  .default(BASE_CAIP2)
+  .transform((value, ctx) => {
+    try {
+      return parseListingNetwork(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "unsupported network",
+      });
+      return z.NEVER;
+    }
+  });
+
 const priceSchema = z.object({
   amount: z.string().regex(/^\d+$/, "price.amount must be atomic USDC (integer string)"),
   asset: z.literal("USDC").default("USDC"),
-  network: z.literal("eip155:8453").default("eip155:8453"),
+  network: networkSchema,
 });
 
 const policySchema = z
@@ -90,7 +111,7 @@ export interface Listing {
   price: {
     amount: string;
     asset: "USDC";
-    network: "eip155:8453";
+    network: SupportedCaip2;
   };
   payTo: string;
   policy?: {

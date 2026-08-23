@@ -1,6 +1,6 @@
 # Berth Market
 
-Agent spend/earn layer. Lists HTTP APIs, MCP tools, and desktop SKUs; prices them in **USDC on Base**; settles via **x402 v2**.
+Agent spend/earn layer. Lists HTTP APIs, MCP tools, and desktop SKUs; prices them in **USDC on Base** (`eip155:8453`) or **Base Sepolia staging** (`eip155:84532`); settles via **x402 v2**.
 
 This repo is not a computer. Isolation, Docker, and hypervisors live in **[Berthos](https://github.com/hexuria/berthos)**. The market talks to a node over HTTP (`GET /v1/eligibility`, `POST /v1/leases`, `DELETE /v1/leases/{id}`) and rejects anything that claims `class=laptop` or `host-desktop`.
 
@@ -8,7 +8,7 @@ No Berth chain. No meme token. Email / AgentMail is out of v1.
 
 ## Spend / earn story
 
-1. A human funds a **treasury** with USDC on Base.
+1. A human funds a **treasury** with USDC on Base (or a Sepolia EOA for staging).
 2. An **agent wallet** is a capped child of that treasury. It can **spend** (x402) up to its cap.
 3. A seller lists an HTTP endpoint, an MCP tool, or a `desktop.linux` SKU fulfilled by a Berthos node (later W365).
 4. The agent calls `GET /listings/:id/invoke` unpaid → **HTTP 402** + `PAYMENT-REQUIRED` quote.
@@ -27,11 +27,12 @@ treasury (human) ──cap──► agent ──402 / pay──► listing ─�
 ```bash
 npm install
 npm test
-npm run earn-loop    # one fake USDC 402 → pay → earn cycle
-npm start            # http://127.0.0.1:8787
+npm run earn-loop      # one fake USDC 402 → pay → earn cycle
+npm run sepolia-loop   # opt-in Base Sepolia settle; skips (exit 0) without keys
+npm start              # http://127.0.0.1:8787
 ```
 
-CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `BERTHOS_LEASE_TOKEN`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI. No live Coinbase keys, no mainnet USDC.
+CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `BERTHOS_LEASE_TOKEN`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI. `npm run sepolia-loop` is also opt-in: without `STAGING_PAYER_PRIVATE_KEY` and `STAGING_PAY_TO` it prints a skip and exits 0. No live Coinbase keys, no mainnet USDC.
 
 ## List an HTTP endpoint
 
@@ -46,13 +47,13 @@ curl -s http://127.0.0.1:8787/listings -X POST \
     "kind": "http",
     "title": "weather.now",
     "description": "Current conditions",
-    "price": { "amount": "100000", "asset": "USDC", "network": "eip155:8453" },
+    "price": { "amount": "1000", "asset": "USDC", "network": "eip155:84532" },
     "payTo": "0x1111111111111111111111111111111111111111",
     "endpoint": { "url": "https://api.example.com/weather", "method": "GET" }
   }'
 ```
 
-`price.amount` is atomic USDC (6 decimals). `"100000"` is $0.10.
+`price.amount` is atomic USDC (6 decimals). Staging default `"1000"` is $0.001. Mainnet listings still accept `eip155:8453`.
 
 MCP uses `kind: "mcp"` and `endpoint.tool`. Desktop uses `kind: "desktop.linux"` after a green Berthos doctor — see below and [docs/LISTING.md](docs/LISTING.md).
 
@@ -76,6 +77,28 @@ curl -i http://127.0.0.1:8787/listings/LISTING_ID/invoke
 The 402 carries a base64 `PAYMENT-REQUIRED` header (x402 v2). Retry the same URL with `PAYMENT-SIGNATURE`. In tests the signature is `test:<walletId>` inside a v2 `PaymentPayload`. Live agents should use `@x402/fetch` + an EVM scheme against a real facilitator.
 
 On success: `200`, `PAYMENT-RESPONSE`, and a receipt that splits 90/10.
+
+## Base Sepolia staging (real testnet USDC)
+
+This is **Base Sepolia** (`eip155:84532`), not Base mainnet (`eip155:8453`). Do not send staging traffic to 8453.
+
+`MemoryWallet` + `TestFacilitator` stay the CI default. A funded Sepolia EOA can settle a real x402 payment through the public facilitator. The receipt stores the settle / tx hash. On-chain USDC goes to `STAGING_PAY_TO`; the 90/10 split is receipt accounting (no second ledger, no CDP spend-permissions in this slice).
+
+1. Get a throwaway EOA. Never commit the key. This process never logs it.
+2. Fund **Base Sepolia USDC** from the [Circle faucet](https://faucet.circle.com) or the [Coinbase CDP faucet](https://portal.cdp.coinbase.com/products/faucet). Sepolia ETH (same CDP faucet, or Base's public list) is only needed if you move funds yourself — x402 exact / EIP-3009 is facilitator-sponsored gas.
+3. Set env (see [`.env.example`](.env.example) and [docs/WALLET.md](docs/WALLET.md)):
+
+```bash
+export NETWORK=base-sepolia
+export FACILITATOR_URL=https://x402.org/facilitator   # public testnet facilitator, no API key
+export STAGING_PAYER_PRIVATE_KEY=0xYOUR_SEPOLIA_EOA_KEY
+export STAGING_PAY_TO=0xSELLER_RECEIVER
+npm run sepolia-loop
+```
+
+The loop lists a tiny HTTP SKU (1000 atomic = $0.001), quotes 402, signs EIP-3009, and settles. It refuses `NETWORK=eip155:8453`. Desktop is not used here unless you run the main server with `BERTHOS_URL`. Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth) — not required for this loop.
+
+If the key or `STAGING_PAY_TO` is unset, the script prints a skip and exits 0 so CI stays green without secrets.
 
 ## How this talks to Berthos
 

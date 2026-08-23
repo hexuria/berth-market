@@ -1,6 +1,6 @@
 # Listing schema
 
-A listing is something an agent can buy with USDC on Base. v1 kinds:
+A listing is something an agent can buy with USDC on Base (`eip155:8453`) or Base Sepolia staging (`eip155:84532` / `base-sepolia`). v1 kinds:
 
 | `kind`          | What it is                                      | Eligibility                         |
 | --------------- | ----------------------------------------------- | ----------------------------------- |
@@ -32,9 +32,9 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
   "title": "weather.now",
   "description": "Current conditions",
   "price": {
-    "amount": "100000",
+    "amount": "1000",
     "asset": "USDC",
-    "network": "eip155:8453"
+    "network": "eip155:84532"
   },
   "payTo": "0x1111111111111111111111111111111111111111",
   "policy": {
@@ -48,7 +48,7 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
 }
 ```
 
-`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10.
+`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10. Staging examples use `eip155:84532` (or alias `base-sepolia`). Mainnet listings still accept `eip155:8453`. Do not send a Sepolia payer at a 8453 quote.
 
 ### MCP
 
@@ -102,7 +102,7 @@ Omit `eligibility` on a desktop listing and the market returns `400` with `eligi
 | `kind`         | yes                              | `http` \| `mcp` \| `desktop.linux`                                    |
 | `title`        | yes                              | Catalog name                                                          |
 | `description`  | no                               | Shown on the x402 resource block                                      |
-| `price`        | yes                              | USDC on Base only                                                     |
+| `price`        | yes                              | USDC; `network` is `eip155:8453` or `eip155:84532` / `base-sepolia`   |
 | `payTo`        | yes                              | Seller treasury address (0x, 20 bytes)                                |
 | `policy`       | no                               | Seller-defined limits; stored, not enforced beyond documentation      |
 | `endpoint`     | http / mcp                       | Where the buyer calls after paying                                    |

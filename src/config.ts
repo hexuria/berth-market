@@ -1,4 +1,9 @@
-import { BASE_CAIP2, USDC_BASE_ADDRESS } from "./domain/money.js";
+import {
+  BASE_CAIP2,
+  parseListingNetwork,
+  usdcAddressFor,
+  type SupportedCaip2,
+} from "./domain/money.js";
 import { DEFAULT_ATTESTATION_MAX_AGE_MS } from "./domain/eligibility.js";
 import { BERTHOS_ELIGIBILITY_PATH } from "./adapters/http-eligibility.js";
 
@@ -16,13 +21,14 @@ export interface MarketConfig {
   walletAdapter: WalletAdapterName;
   attestationMaxAgeMs: number;
   usdcAsset: string;
-  network: typeof BASE_CAIP2;
+  network: SupportedCaip2;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): MarketConfig {
   const port = Number.parseInt(env.PORT ?? "8787", 10);
   const maxAge = Number.parseInt(env.ATTESTATION_MAX_AGE_MS ?? "", 10);
   const walletAdapter = (env.WALLET_ADAPTER ?? "memory").toLowerCase();
+  const network = parseListingNetwork(env.NETWORK ?? BASE_CAIP2);
   return {
     port: Number.isFinite(port) ? port : 8787,
     protocolTreasuryAddress: env.PROTOCOL_TREASURY_ADDRESS || undefined,
@@ -34,7 +40,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MarketConfig {
     facilitatorUrl: env.FACILITATOR_URL || undefined,
     walletAdapter: walletAdapter === "cdp" ? "cdp" : "memory",
     attestationMaxAgeMs: Number.isFinite(maxAge) && maxAge > 0 ? maxAge : DEFAULT_ATTESTATION_MAX_AGE_MS,
-    usdcAsset: USDC_BASE_ADDRESS,
-    network: BASE_CAIP2,
+    usdcAsset: usdcAddressFor(network),
+    network,
   };
 }
