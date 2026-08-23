@@ -48,7 +48,7 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
 }
 ```
 
-`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10. Staging examples use `eip155:84532` (or alias `base-sepolia`). Mainnet listings still accept `eip155:8453`. Do not send a Sepolia payer at a 8453 quote.
+`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10. Omit `price.network` and new listings (and their 402 quotes) default to `eip155:84532` / `base-sepolia`. Mainnet listings still accept an explicit `eip155:8453` and keep that network — existing mainnet rows are not rewritten. Do not send a Sepolia payer at a 8453 quote.
 
 ### MCP
 
@@ -56,7 +56,7 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
 {
   "kind": "mcp",
   "title": "search.web",
-  "price": { "amount": "250000", "asset": "USDC", "network": "eip155:8453" },
+  "price": { "amount": "250000", "asset": "USDC", "network": "eip155:84532" },
   "payTo": "0x1111111111111111111111111111111111111111",
   "endpoint": {
     "url": "https://mcp.example.com/sse",
@@ -72,7 +72,7 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
 {
   "kind": "desktop.linux",
   "title": "gpu-box.session",
-  "price": { "amount": "5000000", "asset": "USDC", "network": "eip155:8453" },
+  "price": { "amount": "5000000", "asset": "USDC", "network": "eip155:84532" },
   "payTo": "0x1111111111111111111111111111111111111111",
     "class": "vm-guest",
     "fulfillment": {
@@ -102,7 +102,7 @@ Omit `eligibility` on a desktop listing and the market returns `400` with `eligi
 | `kind`         | yes                              | `http` \| `mcp` \| `desktop.linux`                                    |
 | `title`        | yes                              | Catalog name                                                          |
 | `description`  | no                               | Shown on the x402 resource block                                      |
-| `price`        | yes                              | USDC; `network` is `eip155:8453` or `eip155:84532` / `base-sepolia`   |
+| `price`        | yes                              | USDC; omit `network` → `eip155:84532`. Explicit `eip155:8453` is kept. |
 | `payTo`        | yes                              | Seller treasury address (0x, 20 bytes)                                |
 | `policy`       | no                               | Seller-defined limits; stored, not enforced beyond documentation      |
 | `endpoint`     | http / mcp                       | Where the buyer calls after paying                                    |

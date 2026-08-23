@@ -90,7 +90,8 @@ export interface CdpWalletAdapterOptions {
  *
  * Live network is Base Sepolia (`base-sepolia` / `eip155:84532`) unless
  * `NETWORK` or `CDP_NETWORK` is explicitly `base` / `eip155:8453`.
- * There is no mainnet default.
+ * There is no mainnet default. Catalog `loadConfig` now also defaults
+ * omitted listing networks to `eip155:84532`; explicit 8453 is kept.
  *
  * Settle mapping (one CDP ledger, not a second in-process mint):
  * - Treasury = EVM smart account with `enableSpendPermissions: true`
