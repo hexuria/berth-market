@@ -74,7 +74,7 @@ Scheme: `exact` / EIP-3009. Listings choose a network:
 | Base           | `eip155:8453`  | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | production facilitator (not in CI)          |
 | Base Sepolia   | `eip155:84532` | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | `https://x402.org/facilitator` (no API key) |
 
-Alias `base-sepolia` is accepted on `price.network` / `NETWORK=` and stored as `eip155:84532`. New listings that omit `price.network` default to `eip155:84532`. A listing that already set `eip155:8453` is quoted on 8453 — it is not rewritten to Sepolia. Staging traffic must not use `8453`.
+Alias `base-sepolia` is accepted on `price.network` / `NETWORK=` and stored as `eip155:84532`. New listings that omit `price.network` default to `NETWORK` (unset → `eip155:84532`). A listing that already set `eip155:8453` is quoted on 8453 — it is not rewritten to Sepolia. Staging traffic must not use `8453`.
 
 `TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (`POST /verify` + `POST /settle` with the v2 `{ x402Version, paymentPayload, paymentRequirements }` body). Tests never call that URL unless `fetch` is mocked.
 

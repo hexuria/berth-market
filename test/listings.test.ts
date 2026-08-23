@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
+import {
+  BASE_CAIP2,
+  BASE_SEPOLIA_CAIP2,
+  USDC_BASE_ADDRESS,
+  USDC_BASE_SEPOLIA_ADDRESS,
+} from "../src/domain/money.js";
 import { bootMarket, desktopListing, httpListing, requestJson } from "./helpers.js";
 
 const PAY_TO = "0x1111111111111111111111111111111111111111";
 
 describe("listings", () => {
-  it("defaults omitted price.network to eip155:84532 and keeps explicit mainnet", async () => {
+  it("lands a listing with no network field on eip155:84532 and Sepolia USDC", async () => {
     const { app } = await bootMarket();
 
     const omitted = await requestJson(app, "POST", "/listings", {
@@ -16,22 +22,51 @@ describe("listings", () => {
     });
     expect(omitted.status).toBe(201);
     const created = omitted.json.listing as { id: string; price: { network: string } };
-    expect(created.price.network).toBe("eip155:84532");
+    expect(created.price.network).toBe(BASE_SEPOLIA_CAIP2);
 
     const quote = await requestJson(app, "GET", `/listings/${created.id}/invoke`);
     expect(quote.status).toBe(402);
-    const accepted = (quote.json.quote as { accepts: { network: string }[] }).accepts[0];
-    expect(accepted?.network).toBe("eip155:84532");
+    const accepted = (quote.json.quote as { accepts: { network: string; asset: string }[] }).accepts[0];
+    expect(accepted?.network).toBe(BASE_SEPOLIA_CAIP2);
+    expect(accepted?.asset).toBe(USDC_BASE_SEPOLIA_ADDRESS);
+    expect(accepted?.asset).not.toBe(USDC_BASE_ADDRESS);
+    expect(JSON.stringify(quote.json)).not.toContain(`"${BASE_CAIP2}"`);
+    expect(JSON.stringify(quote.json)).not.toContain(USDC_BASE_ADDRESS);
+  });
 
+  it("keeps an explicit eip155:8453 listing and quote on mainnet USDC", async () => {
+    const { app } = await bootMarket();
     const mainnet = await requestJson(app, "POST", "/listings", httpListing(PAY_TO));
     expect(mainnet.status).toBe(201);
     const stored = mainnet.json.listing as { id: string; price: { network: string } };
-    expect(stored.price.network).toBe("eip155:8453");
+    expect(stored.price.network).toBe(BASE_CAIP2);
     const mainnetQuote = await requestJson(app, "GET", `/listings/${stored.id}/invoke`);
     expect(mainnetQuote.status).toBe(402);
-    const mainnetAccepted = (mainnetQuote.json.quote as { accepts: { network: string }[] }).accepts[0];
-    expect(mainnetAccepted?.network).toBe("eip155:8453");
-    expect(JSON.stringify(mainnetQuote.json)).not.toContain("eip155:84532");
+    const mainnetAccepted = (mainnetQuote.json.quote as { accepts: { network: string; asset: string }[] })
+      .accepts[0];
+    expect(mainnetAccepted?.network).toBe(BASE_CAIP2);
+    expect(mainnetAccepted?.asset).toBe(USDC_BASE_ADDRESS);
+    expect(JSON.stringify(mainnetQuote.json)).not.toContain(BASE_SEPOLIA_CAIP2);
+  });
+
+  it("uses NETWORK=eip155:8453 as the catalog default only when the operator sets it", async () => {
+    const { app } = await bootMarket({ env: { NETWORK: BASE_CAIP2 } });
+    const created = await requestJson(app, "POST", "/listings", {
+      kind: "http",
+      title: "weather.mainnet",
+      price: { amount: "1000", asset: "USDC" },
+      payTo: PAY_TO,
+      endpoint: { url: "https://api.example.com/weather", method: "GET" },
+    });
+    expect(created.status).toBe(201);
+    const listing = created.json.listing as { id: string; price: { network: string } };
+    expect(listing.price.network).toBe(BASE_CAIP2);
+
+    const quote = await requestJson(app, "GET", `/listings/${listing.id}/invoke`);
+    expect(quote.status).toBe(402);
+    const accepted = (quote.json.quote as { accepts: { network: string; asset: string }[] }).accepts[0];
+    expect(accepted?.network).toBe(BASE_CAIP2);
+    expect(accepted?.asset).toBe(USDC_BASE_ADDRESS);
   });
 
   it("creates and lists http and mcp SKUs", async () => {

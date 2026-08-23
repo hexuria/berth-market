@@ -64,6 +64,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
       ok: true,
       service: "berth-market",
       asset: "USDC",
+      usdcAsset: config.usdcAsset,
       network: config.network,
       networks: [BASE_CAIP2, BASE_SEPOLIA_CAIP2],
       stagingNetwork: BASE_SEPOLIA_CAIP2,
@@ -72,7 +73,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
   );
 
   app.post("/listings", async (c) => {
-    const input = parseCreateListing(await c.req.json());
+    const input = parseCreateListing(await c.req.json(), config.network);
     assertListingKind(input.kind);
     assertAllowedClass(input.class, "class");
     assertAllowedClass(input.eligibility?.class, "eligibility.class");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { BASE_CAIP2, BASE_SEPOLIA_CAIP2, USDC_BASE_ADDRESS, USDC_BASE_SEPOLIA_ADDRESS } from "../src/domain/money.js";
 import { DEFAULT_CORS_ORIGINS, parseCorsOrigins } from "../src/http/cors.js";
 import { PAYMENT_REQUIRED_HEADER, PAYMENT_SIGNATURE_HEADER } from "../src/domain/x402.js";
 import { bootMarket, requestJson } from "./helpers.js";
@@ -26,9 +27,20 @@ describe("parseCorsOrigins", () => {
 describe("loadConfig defaults", () => {
   it("defaults catalog NETWORK to eip155:84532 and keeps explicit mainnet", () => {
     const def = loadConfig({});
-    expect(def.network).toBe("eip155:84532");
+    expect(def.network).toBe(BASE_SEPOLIA_CAIP2);
+    expect(def.usdcAsset).toBe(USDC_BASE_SEPOLIA_ADDRESS);
     expect(def.corsOrigins).toEqual([...DEFAULT_CORS_ORIGINS]);
-    expect(loadConfig({ NETWORK: "eip155:8453" }).network).toBe("eip155:8453");
+    const mainnet = loadConfig({ NETWORK: BASE_CAIP2 });
+    expect(mainnet.network).toBe(BASE_CAIP2);
+    expect(mainnet.usdcAsset).toBe(USDC_BASE_ADDRESS);
+  });
+
+  it("GET /health reports the catalog default network and USDC", async () => {
+    const { app } = await bootMarket();
+    const res = await requestJson(app, "GET", "/health");
+    expect(res.status).toBe(200);
+    expect(res.json.network).toBe(BASE_SEPOLIA_CAIP2);
+    expect(res.json.usdcAsset).toBe(USDC_BASE_SEPOLIA_ADDRESS);
   });
 });
 

@@ -1,7 +1,7 @@
 import { BERTHOS_ELIGIBILITY_PATH } from "./adapters/http-eligibility.js";
 import { DEFAULT_ATTESTATION_MAX_AGE_MS } from "./domain/eligibility.js";
 import {
-  BASE_SEPOLIA_CAIP2,
+  DEFAULT_LISTING_NETWORK,
   parseListingNetwork,
   usdcAddressFor,
   type SupportedCaip2,
@@ -32,7 +32,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MarketConfig {
   const port = Number.parseInt(env.PORT ?? "8787", 10);
   const maxAge = Number.parseInt(env.ATTESTATION_MAX_AGE_MS ?? "", 10);
   const walletAdapter = (env.WALLET_ADAPTER ?? "memory").toLowerCase();
-  const network = parseListingNetwork(env.NETWORK ?? BASE_SEPOLIA_CAIP2);
+  const network = parseListingNetwork(env.NETWORK ?? DEFAULT_LISTING_NETWORK);
   return {
     port: Number.isFinite(port) ? port : 8787,
     protocolTreasuryAddress: env.PROTOCOL_TREASURY_ADDRESS || undefined,
