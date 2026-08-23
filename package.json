@@ -19,6 +19,7 @@
     "sepolia-loop": "tsx src/scripts/sepolia-loop.ts"
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.55.0",
     "@hono/node-server": "^1.19.1",
     "hono": "^4.9.6",
     "viem": "^2.55.19",

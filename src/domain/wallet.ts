@@ -1,5 +1,19 @@
 export type WalletKind = "treasury" | "agent";
 
+/** How USDC actually moved on-chain. Receipt 90/10 is always stored. */
+export type OnChainSettlement = "payTo_100" | "cdp_split_90_10";
+
+export interface CdpWalletMeta {
+  ownerAddress?: string;
+  spendPermission?: {
+    account: string;
+    spender: string;
+    token: "usdc";
+    allowance: string;
+    periodInDays: number;
+  };
+}
+
 export interface Wallet {
   id: string;
   kind: WalletKind;
@@ -10,6 +24,8 @@ export interface Wallet {
   spentAtomic: string;
   balanceAtomic: string;
   createdAt: string;
+  /** Present when the wallet was created through `CdpWalletAdapter`. */
+  cdp?: CdpWalletMeta;
 }
 
 export interface Receipt {
@@ -34,6 +50,12 @@ export interface Receipt {
   billedSeconds?: number;
   occupancyMinSeconds?: number;
   occupancyUnit?: "seconds";
+  /**
+   * On-chain movement. `payTo_100` = public facilitator sent the full amount
+   * to `sellerAddress`. `cdp_split_90_10` = CDP did two USDC transfers.
+   * Omitted for the in-memory test ledger.
+   */
+  onChainSettlement?: OnChainSettlement;
 }
 
 export class WalletError extends Error {

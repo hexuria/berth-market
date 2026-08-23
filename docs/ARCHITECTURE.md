@@ -76,7 +76,9 @@ Alias `base-sepolia` is accepted on `price.network` / `NETWORK=` and stored as `
 
 `TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (`POST /verify` + `POST /settle` with the v2 `{ x402Version, paymentPayload, paymentRequirements }` body). Tests never call that URL unless `fetch` is mocked.
 
-A live Sepolia payment does **not** debit `MemoryWallet`. The receipt stores the facilitator settle tx hash. On-chain USDC goes to `payTo`; 90/10 is receipt accounting until CDP spend-permissions exist.
+A live Sepolia payment through the public facilitator does **not** debit `MemoryWallet`. The receipt stores the facilitator settle tx hash. On-chain USDC is **100%** to `payTo` (`onChainSettlement=payTo_100`); 90/10 is receipt accounting. The public facilitator has one `payTo` — we do not invent a second settle.
+
+`CdpWalletAdapter` (`WALLET_ADAPTER=cdp` + three keys) is the other ledger: `@coinbase/cdp-sdk` on **Base Sepolia** by default, `useSpendPermission` then two USDC transfers (90/10). CI never constructs it and never calls Coinbase.
 
 ## Money
 

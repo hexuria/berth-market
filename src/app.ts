@@ -1,11 +1,10 @@
-import { CdpWalletAdapter } from "./adapters/cdp-wallet.js";
+import { createWalletPort, type CdpSdkLike } from "./adapters/cdp-wallet.js";
 import { HttpBerthosEligibilityClient } from "./adapters/http-eligibility.js";
 import { HttpBerthosLeaseClient } from "./adapters/http-lease.js";
 import { LiveFacilitator } from "./adapters/live-facilitator.js";
 import { MemoryEligibilityClient } from "./adapters/memory-eligibility.js";
 import { MemoryLeaseClient } from "./adapters/memory-lease.js";
 import { MemoryStore } from "./adapters/memory-store.js";
-import { MemoryWalletAdapter } from "./adapters/memory-wallet.js";
 import { TestFacilitator } from "./adapters/test-facilitator.js";
 import { loadConfig, type MarketConfig } from "./config.js";
 import type { MarketDependencies } from "./deps.js";
@@ -27,6 +26,8 @@ export interface CreateAppOptions {
   leases?: LeaseClient;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
+  /** Mock CDP client for tests. Never a live client in CI. */
+  cdp?: CdpSdkLike;
 }
 
 export async function createApp(options: CreateAppOptions = {}) {
@@ -34,8 +35,7 @@ export async function createApp(options: CreateAppOptions = {}) {
   const config = options.config ?? loadConfig(env);
   const store = options.store ?? new MemoryStore();
   const wallets =
-    options.wallets ??
-    (config.walletAdapter === "cdp" ? new CdpWalletAdapter(env) : new MemoryWalletAdapter(store));
+    options.wallets ?? createWalletPort(store, env, { client: options.cdp });
   const facilitator =
     options.facilitator ??
     (config.facilitatorUrl

@@ -27,6 +27,7 @@ export interface SepoliaLoopReceipt {
   protocolAtomic: string;
   payerAddress: string;
   sellerAddress: string;
+  onChainSettlement?: "payTo_100" | "cdp_split_90_10";
 }
 
 export type SepoliaLoopResult =
@@ -122,6 +123,11 @@ export async function runSepoliaLoop(options: {
   }
   if (receipt.protocolAtomic !== expected.protocolAtomic.toString()) {
     throw new Error(`expected protocol 10% ${expected.protocolAtomic}, got ${receipt.protocolAtomic}`);
+  }
+  if (receipt.onChainSettlement !== "payTo_100") {
+    throw new Error(
+      `expected onChainSettlement=payTo_100 (public facilitator is one payTo), got ${receipt.onChainSettlement}`,
+    );
   }
 
   log("Berth Market Base Sepolia x402 loop — ok (testnet, not mainnet)");

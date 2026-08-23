@@ -9,6 +9,8 @@ function clone(wallet: Wallet): Wallet {
 }
 
 export class MemoryWalletAdapter implements WalletPort {
+  readonly kind = "memory" as const;
+
   constructor(private readonly store: MarketStore) {}
 
   async createTreasury(input: { label?: string; address?: string } = {}): Promise<Wallet> {

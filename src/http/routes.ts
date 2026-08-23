@@ -207,6 +207,7 @@ export function createRouter(deps: MarketDependencies): Hono {
       let payerWalletId: string;
       let payerAddress: string;
       let transaction = settlement.transaction;
+      let onChainSettlement: Receipt["onChainSettlement"] = "payTo_100";
 
       if (testPayerId) {
         const payout = await deps.wallets.settleListingPayment({
@@ -218,9 +219,10 @@ export function createRouter(deps: MarketDependencies): Hono {
         payerWalletId = payout.payer.id;
         payerAddress = payout.payer.address;
         transaction = settlement.transaction || payout.txHash;
+        onChainSettlement = payout.onChainSettlement;
       } else {
-        // Facilitator-authoritative: MemoryWallet is not on-chain. The settle
-        // tx hash is the money movement; we only record the 90/10 split.
+        // Public x402 facilitator: one payTo. On-chain USDC is 100% to
+        // listing.payTo. 90/10 below is receipt accounting — not a second settle.
         const from =
           settlement.payer ?? verify.payer ?? payload.payload.authorization.from;
         if (!from) {
@@ -258,6 +260,7 @@ export function createRouter(deps: MarketDependencies): Hono {
         transaction,
         network: listing.price.network,
         createdAt: nowIso(),
+        onChainSettlement,
       };
       if (liveLease) {
         receipt.leaseId = liveLease.id;
