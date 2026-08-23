@@ -16,8 +16,8 @@ never host-desktop / laptop      POST /receipts/:id/end (desktop only)
 | Host / park UI                                     | [hexuria/berthos](https://github.com/hexuria/berthos) CLI (`berth doctor`, `berth node up`, pair).     |
 | Guest view / MCP                                   | Being added on berthos. Full console + `berth view` already exist on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). |
 | Staging chain                                      | Base Sepolia `eip155:84532`. Public facilitator `https://x402.org/facilitator`.                       |
-| On-chain transfer                                  | **100%** to `payTo`. 90/10 is **receipt accounting**, not a second on-chain split.                    |
-| CDP wallets                                        | Still stub `cdp_not_live`. Staging keeps `WALLET_ADAPTER=memory`.                                     |
+| On-chain transfer (public facilitator)             | **100%** to `payTo`. 90/10 is **receipt accounting** (`onChainSettlement=payTo_100`).                 |
+| CDP wallets                                        | Wired via `@coinbase/cdp-sdk` when `WALLET_ADAPTER=cdp` **and** the three keys are set. Default + CI stay `MemoryWalletAdapter`. Live network is Sepolia unless `NETWORK`/`CDP_NETWORK` is explicitly `base`. Staging loop forces `WALLET_ADAPTER=memory`. |
 | This repo runs Docker / a hypervisor               | **No.**                                                                                               |
 
 Screen-recording placeholders (no binaries in git): [docs/demo/README.md](demo/README.md).
@@ -154,7 +154,7 @@ What the script does (see [How we know this is our repo](#how-we-know-this-is-ou
 3. Unpaid `GET /listings/:id/invoke` → **402**.
 4. Sign EIP-3009 `TransferWithAuthorization` (`src/staging/signer.ts`).
 5. Paid invoke → Hono → `LiveFacilitator` `POST /verify` + `POST /settle`.
-6. Print `listing`, `payer`, `payTo`, `tx=` (facilitator settle hash). 90/10 is on the receipt only.
+6. Print `listing`, `payer`, `payTo`, `tx=` (facilitator settle hash). Receipt stores 90/10 and `onChainSettlement=payTo_100`.
 
 ### Verify on Basescan that the facilitator sent USDC to `payTo`
 
@@ -281,7 +281,7 @@ Docker is for **Role A** (berthos guest image). This repo is Node 22 + npm. You 
 ## Related
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — ports, x402 headers, 90/10
-- [WALLET.md](WALLET.md) — treasury vs agent, staging env, CDP stub
+- [WALLET.md](WALLET.md) — treasury vs agent, staging env, env-flagged CDP adapter
 - [LISTING.md](LISTING.md) — `http` / `mcp` / `desktop.linux` schema
 - [hexuria/berthos README](https://github.com/hexuria/berthos/blob/main/README.md) — doctor, node, pair
 - [codeitlikemiley/berth README](https://github.com/codeitlikemiley/berth/blob/main/README.md) — console + `berth view` + MCP

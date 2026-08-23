@@ -52,7 +52,14 @@ On a paid invoke:
 
 The protocol treasury is created at boot (`PROTOCOL_TREASURY_ADDRESS` or a generated test address).
 
-On **Base Sepolia** the live settle is facilitator-authoritative: the facilitator submits `transferWithAuthorization` and the receipt stores that tx hash. The market still records a 90/10 split on the receipt. The on-chain transfer is 100% to `listing.payTo` — this slice does not invent a second ledger or wire CDP spend-permissions to move the 10% on-chain.
+On **Base Sepolia** there are two honest money paths:
+
+| Path | On-chain USDC | Receipt 90/10 |
+| ---- | ------------- | ------------- |
+| Public x402.org facilitator (`FACILITATOR_URL`, `sepolia-loop`) | **100%** to `listing.payTo` (one `payTo`, one settle) | Stored as `sellerAtomic` / `protocolAtomic`. `onChainSettlement=payTo_100`. |
+| `CdpWalletAdapter` (`WALLET_ADAPTER=cdp` + three keys) | **90%** `payTo` + **10%** protocol via `useSpendPermission` then two USDC transfers | Same numbers. `onChainSettlement=cdp_split_90_10`. |
+
+The public facilitator does not take two `payTo`s. Do not fake a second on-chain hop after that settle. Do not pair live facilitator settle with a CDP re-split.
 
 ## WalletPort
 
@@ -93,20 +100,22 @@ Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` 
 
 ### `CdpWalletAdapter` (env-flagged)
 
-Production target: [Coinbase Developer Platform](https://docs.cdp.coinbase.com/) / Agentic Wallet.
+Production target: [Coinbase Developer Platform](https://docs.cdp.coinbase.com/) / Agentic Wallet via `@coinbase/cdp-sdk`.
 
-The adapter **implements `WalletPort` and compiles**. It is selected only when `WALLET_ADAPTER=cdp` **and** `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set. Default boot and every CI test use `MemoryWalletAdapter`. Do **not** add `@coinbase/cdp-sdk` as a runtime dependency in this slice — live CDP calls are not made without that SDK, so a flagged adapter without it returns `cdp_not_live` rather than inventing a second ledger.
+Selected only when **`WALLET_ADAPTER=cdp` and** `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set. If the flag is set without keys, boot **throws** — the live adapter is not constructed. Default boot and every CI test use `MemoryWalletAdapter`. Tests inject a mock `CdpClient`; they never call Coinbase.
 
-Intended mapping — wrap CDP, do not invent a second ledger:
+Live CDP network is **Base Sepolia** (`base-sepolia` / `eip155:84532`) unless `NETWORK` or `CDP_NETWORK` is **explicitly** `base` / `eip155:8453`. Unset `NETWORK` does **not** mean mainnet for this adapter (catalog `loadConfig` still defaults listings to `eip155:8453`).
+
+Mapping — wrap CDP, do not invent a second ledger:
 
 | Market concept | CDP primitive                                                                 |
 | -------------- | ----------------------------------------------------------------------------- |
 | Treasury       | EVM smart account with `enableSpendPermissions: true`                         |
-| Agent          | Spender account + `cdp.evm.createSpendPermission({ token: "usdc", … })`       |
-| Spend cap      | Spend-permission `allowance` / period on Base                                 |
-| Fund           | USDC transfer onto the treasury or agent on `base` / `eip155:8453` (mainnet) or `base-sepolia` / `eip155:84532` (staging) |
-| Listing payout | `useSpendPermission` then transfer 90% `payTo` / 10% protocol                 |
+| Agent          | Spender EOA + `cdp.evm.createSpendPermission({ token: "usdc", … })`           |
+| Spend cap      | Spend-permission `allowance` (365-day period)                                 |
+| Fund           | `requestFaucet` on `base-sepolia` only. The drip size is Coinbase's; `amount` is the market spend-cap credit. No mainnet faucet. |
+| Listing payout | `useSpendPermission` then two USDC transfers: 90% `payTo`, 10% protocol       |
 
-Sepolia spend-permissions via CDP are **not** wired in this slice — that would be a second live ledger beside the facilitator settle. Keep `WALLET_ADAPTER=memory` for staging; the gap is that in-memory balances do not track on-chain USDC.
+Keep `WALLET_ADAPTER=memory` for `sepolia-loop` (the script forces it). Facilitator settle and CDP spend-permissions are different ledgers — do not run both on one payment.
 
-See [Spend Permissions](https://docs.cdp.coinbase.com/wallets/using-wallets/spend-permissions). Tests must keep using `MemoryWalletAdapter` so CI needs no secrets.
+See [Spend Permissions](https://docs.cdp.coinbase.com/wallets/using-wallets/spend-permissions). CI needs no secrets.

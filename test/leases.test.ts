@@ -75,7 +75,7 @@ async function listAndPayDesktop(
 }
 
 describe("desktop.linux lease fulfillment", () => {
-  it("pays desktop.linux, creates a lease, ends it, and stores occupancy seconds", async () => {
+  it("pay-then-occupy: pays desktop.linux, creates a lease, ends it, and stores occupancy seconds (not a second charge)", async () => {
     const leases = new MemoryLeaseClient({ occupancySecondsOnEnd: 12 });
     const { app } = await bootMarket({ leases });
     const { agent, paid } = await listAndPayDesktop(app);
