@@ -2,7 +2,7 @@
 
 Berth Market lists things, prices them, and moves USDC. It is not a computer.
 
-Isolation, Docker, and hypervisors live in [Berthos](https://github.com/hexuria/berthos). This process talks to a Berthos node only as an `EligibilityClient` (`GET /v1/eligibility`) and as a fulfillment URL on `kind=desktop.linux` listings.
+Isolation, Docker, and hypervisors live in [Berthos](https://github.com/hexuria/berthos). This process talks to a Berthos node as an `EligibilityClient` (`GET /v1/eligibility`) and a `LeaseClient` (`POST /v1/leases`, `DELETE /v1/leases/{id}`). Money never leaves this repo.
 
 ```
   human USDC
@@ -46,12 +46,14 @@ Core use-cases depend on ports, not vendors.
 | `WalletPort`         | `MemoryWalletAdapter`     | `CdpWalletAdapter` (`WALLET_ADAPTER=cdp` — see [WALLET.md](WALLET.md)) |
 | `FacilitatorPort`    | `TestFacilitator` (default) | `LiveFacilitator` (`FACILITATOR_URL`) → `POST /verify` + `/settle` |
 | `EligibilityClient`  | `MemoryEligibilityClient` | `HttpBerthosEligibilityClient` (`BERTHOS_URL`) → `GET /v1/eligibility` |
+| `LeaseClient`        | `MemoryLeaseClient`       | `HttpBerthosLeaseClient` (`BERTHOS_URL` + `BERTHOS_LEASE_TOKEN`) → `POST/DELETE /v1/leases` |
 | `MarketStore`        | `MemoryStore`             | SQLite / D1 / Postgres later                            |
 
 Fail-closed rules live in the domain, not in HTTP handlers:
 
 - Forbidden `class` / `kind` values (`laptop`, `host-desktop`, …) never become listings.
 - `desktop.*` kinds require a stored Berthos attestation. Missing, stale, `ok: false`, `class=laptop`, unreachable `GET /v1/eligibility`, or stale/missing image labels is a reject.
+- Paid `desktop.linux` invoke **re-checks eligibility**, then `POST /v1/leases` **before** x402 settle / wallet debit. Unreachable node, laptop class, ineligible doctor, or 409 already-leased is 4xx with no charge. A settle failure after create **aborts** the guest (`DELETE`). A replayed nonce is rejected before a second lease.
 
 ## x402 v2
 
@@ -78,6 +80,10 @@ Amounts are atomic USDC (6 decimals) stored as decimal strings. On a successful 
 
 There is no Berth token. There is no L1 of our own.
 
+v1 desktop billing is **pay-then-occupy**: the listing price settles at invoke. Berthos quotes occupancy seconds with `charged_here: false`. `POST /receipts/:id/end` stores those seconds on the receipt. It does not mint a second x402.
+
 ## Fulfillment boundary
 
-A paid `GET /listings/:id/invoke` returns `200` and a receipt. It does **not** boot a VM and does **not** proxy an arbitrary HTTP URL (that would be SSRF). HTTP/MCP SKUs are priced here; the buyer calls the published endpoint. Desktop SKUs are priced here; a Berthos node fulfills the guest session.
+A paid `GET /listings/:id/invoke` returns `200` and a receipt. It does **not** boot a VM in this process and does **not** proxy an arbitrary HTTP URL (that would be SSRF). HTTP/MCP SKUs are priced here; the buyer calls the published endpoint.
+
+`kind=desktop.linux` is priced here, then this process asks the listing's Berthos node to start one isolated Linux guest. The 200 includes `fulfillment.leaseId` + `berthosUrl`. `POST /receipts/:id/end` destroys the guest and writes occupancy seconds. Docker / hypervisor code stays in [hexuria/berthos](https://github.com/hexuria/berthos).

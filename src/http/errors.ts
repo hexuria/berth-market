@@ -1,3 +1,4 @@
+import { LeaseError } from "../domain/lease.js";
 import { ListingValidationError } from "../domain/listing.js";
 import { MoneyError } from "../domain/money.js";
 import { WalletError } from "../domain/wallet.js";
@@ -10,7 +11,11 @@ export interface ErrorBody {
 }
 
 export function toErrorResponse(error: unknown): { status: number; body: ErrorBody } {
-  if (error instanceof ListingValidationError || error instanceof WalletError) {
+  if (
+    error instanceof ListingValidationError ||
+    error instanceof WalletError ||
+    error instanceof LeaseError
+  ) {
     return {
       status: error.status,
       body: { error: { code: error.code, message: error.message } },

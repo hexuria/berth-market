@@ -2,7 +2,7 @@
 
 Agent spend/earn layer. Lists HTTP APIs, MCP tools, and desktop SKUs; prices them in **USDC on Base**; settles via **x402 v2**.
 
-This repo is not a computer. Isolation, Docker, and hypervisors live in **[Berthos](https://github.com/hexuria/berthos)**. The market talks to a node over HTTP (`GET /v1/eligibility`) and rejects anything that claims `class=laptop` or `host-desktop`.
+This repo is not a computer. Isolation, Docker, and hypervisors live in **[Berthos](https://github.com/hexuria/berthos)**. The market talks to a node over HTTP (`GET /v1/eligibility`, `POST /v1/leases`, `DELETE /v1/leases/{id}`) and rejects anything that claims `class=laptop` or `host-desktop`.
 
 No Berth chain. No meme token. Email / AgentMail is out of v1.
 
@@ -12,8 +12,10 @@ No Berth chain. No meme token. Email / AgentMail is out of v1.
 2. An **agent wallet** is a capped child of that treasury. It can **spend** (x402) up to its cap.
 3. A seller lists an HTTP endpoint, an MCP tool, or a `desktop.linux` SKU fulfilled by a Berthos node (later W365).
 4. The agent calls `GET /listings/:id/invoke` unpaid → **HTTP 402** + `PAYMENT-REQUIRED` quote.
-5. The agent retries with `PAYMENT-SIGNATURE`. The test facilitator (or a live x402 facilitator) verifies and settles.
-6. The market returns **200 + receipt**. The seller treasury **earns 90%**. The protocol treasury takes **10%**.
+5. The agent retries with `PAYMENT-SIGNATURE`. The test facilitator (or a live x402 facilitator) verifies.
+6. For `desktop.linux`, the market **creates a Berthos lease first**, then settles. Unreachable / laptop / 409 → 4xx, no charge.
+7. The market returns **200 + receipt** (and a `leaseId` for desktop). The seller treasury **earns 90%**. The protocol treasury takes **10%**.
+8. `POST /receipts/:id/end` destroys the guest and stores occupancy seconds. That is a receipt, not a second payment.
 
 ```
 treasury (human) ──cap──► agent ──402 / pay──► listing ──90%──► seller payTo
@@ -29,7 +31,7 @@ npm run earn-loop    # one fake USDC 402 → pay → earn cycle
 npm start            # http://127.0.0.1:8787
 ```
 
-CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI.
+CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `BERTHOS_LEASE_TOKEN`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI. No live Coinbase keys, no mainnet USDC.
 
 ## List an HTTP endpoint
 
@@ -79,7 +81,7 @@ On success: `200`, `PAYMENT-RESPONSE`, and a receipt that splits 90/10.
 
 [Berthos](https://github.com/hexuria/berthos) is the VM/server computer-session node. Isolated guests only. This market **does not** run Docker or a hypervisor.
 
-Set **`BERTHOS_URL`** to the node's loopback HTTP (default `http://127.0.0.1:7432`). When it is set, desktop listings are re-checked with `HttpBerthosEligibilityClient` against `GET $BERTHOS_URL/v1/eligibility`. Leave it unset in CI — tests use `MemoryEligibilityClient`.
+Set **`BERTHOS_URL`** to the node's loopback HTTP (default `http://127.0.0.1:7432`) and **`BERTHOS_LEASE_TOKEN`** to a pairing bearer with the `lease` capability. When `BERTHOS_URL` is set, desktop listings use `HttpBerthosEligibilityClient` (`GET /v1/eligibility`) and paid invokes use `HttpBerthosLeaseClient` (`POST /v1/leases`). Leave both unset in CI — tests use `MemoryEligibilityClient` + `MemoryLeaseClient`.
 
 The live body is the Berthos doctor report: `ok` / `eligible`, `class`, `checks[]`, and guest image labels (`berthos.guest.version=v1`, `berthos.desktop=xvfb-openbox-chromium`, `berthos.egress.policy=default-deny`). Desktop listings **fail closed** when the client cannot reach the node, `ok` is false, `class` is `laptop` (or `host-desktop`), or the attestation / image labels are stale or missing.
 
@@ -97,6 +99,7 @@ Then point the market at that node and list a SKU. The market GETs `/v1/eligibil
 
 ```bash
 export BERTHOS_URL=http://127.0.0.1:7432
+export BERTHOS_LEASE_TOKEN=PASTE_FROM_POST_V1_PAIR
 
 # Optional: inspect the same shape the market will store
 curl -s "$BERTHOS_URL/v1/eligibility"
@@ -129,7 +132,55 @@ curl -s http://127.0.0.1:8787/listings -X POST \
   }'
 ```
 
-`kind` / `class` of `laptop` or `host-desktop` is rejected even when the rest of the payload is well-formed.
+Paid invoke then `POST`s `/v1/leases` (`os=linux` only) before settling. See the live loop below. `kind` / `class` of `laptop` or `host-desktop` is rejected even when the rest of the payload is well-formed.
+
+### Live loop: fund, list, pay, see a lease, end, occupancy
+
+This uses **test USDC** in the in-memory wallet. You do not need Coinbase keys, mainnet USDC, or `FACILITATOR_URL`. You do need a local Berthos node for a real guest — build / doctor / `node up` live in [hexuria/berthos](https://github.com/hexuria/berthos), not here.
+
+On the node host:
+
+```bash
+docker build -t berthos-linux-desktop:v1 images/linux-desktop
+berth doctor --json
+berth node up
+# pairing code printed, or:
+curl -s http://127.0.0.1:7432/v1/pairing
+curl -s http://127.0.0.1:7432/v1/pair \
+  -H 'content-type: application/json' \
+  -d '{"code":"ABCD-EFGH"}'
+# → { "token": "…", "capabilities": ["operator", "lease"] }
+```
+
+In this repo (still the test facilitator + faucet):
+
+```bash
+export BERTHOS_URL=http://127.0.0.1:7432
+export BERTHOS_LEASE_TOKEN=PASTE_TOKEN
+npm start
+```
+
+Then fund a test wallet, list `desktop.linux` (payload above), pay, and end:
+
+```bash
+# treasury + capped agent + test USDC (not mainnet)
+curl -s http://127.0.0.1:8787/wallets/treasury -X POST \
+  -H 'content-type: application/json' -d '{"label":"seller"}'
+curl -s http://127.0.0.1:8787/wallets/agent -X POST \
+  -H 'content-type: application/json' \
+  -d '{"spendCap":"5000000","label":"research-agent"}'
+curl -s http://127.0.0.1:8787/wallets/WALLET_ID/fund -X POST \
+  -H 'content-type: application/json' -d '{"amount":"2000000"}'
+
+# unpaid → 402; retry with PAYMENT-SIGNATURE (tests use test:<walletId>)
+curl -i http://127.0.0.1:8787/listings/LISTING_ID/invoke
+# 200 body includes fulfillment.leaseId and receipt.id
+
+curl -s http://127.0.0.1:8787/receipts/RECEIPT_ID/end -X POST
+# receipt.occupancySeconds / billedSeconds (seconds, min 60s billed). Not a second charge.
+```
+
+If the node is down, ineligible, `class=laptop`, or already leased, invoke is 4xx and the agent is not debited.
 
 ## API
 
@@ -138,6 +189,8 @@ curl -s http://127.0.0.1:8787/listings -X POST \
 | POST   | `/listings`                | Create listing (validates kind + eligibility)|
 | GET    | `/listings`                | Catalog                                      |
 | GET    | `/listings/:id/invoke`     | 402 quote or paid fulfillment + receipt      |
+| GET    | `/receipts/:id`            | Payment receipt (lease id + occupancy)       |
+| POST   | `/receipts/:id/end`        | Destroy Berthos guest; store occupancy seconds |
 | POST   | `/wallets/treasury`        | Human / seller treasury                      |
 | POST   | `/wallets/agent`           | Capped child                                 |
 | POST   | `/wallets/:id/fund`       | Test USDC                                    |
@@ -152,4 +205,4 @@ curl -s http://127.0.0.1:8787/listings -X POST \
 
 ## Design
 
-Ports (`WalletPort`, `FacilitatorPort`, `EligibilityClient`) keep Coinbase CDP and Berthos behind adapters. The Hono app can run under Node (vitest / `npm start`) and export as a Worker later (`src/worker.ts`).
+Ports (`WalletPort`, `FacilitatorPort`, `EligibilityClient`, `LeaseClient`) keep Coinbase CDP and Berthos behind adapters. The Hono app can run under Node (vitest / `npm start`) and export as a Worker later (`src/worker.ts`).

@@ -76,5 +76,8 @@ describe("x402 spend then earn", () => {
 
     const replay = await requestJson(app, "GET", `/listings/${listing.id}/invoke`, undefined, headers);
     expect(replay.status).toBe(402);
+
+    const agentAfter = await requestJson(app, "GET", `/wallets/${agent.id}`);
+    expect((agentAfter.json.wallet as { spentAtomic: string }).spentAtomic).toBe("100000");
   });
 });

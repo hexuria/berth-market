@@ -59,6 +59,8 @@ const fulfillmentSchema = z
     berthosUrl: z.string().url().optional(),
     sku: z.string().min(1).optional(),
     nodeId: z.string().min(1).optional(),
+    /** Pairing bearer with `lease` capability. Never echoed on listing JSON. */
+    leaseToken: z.string().min(1).optional(),
   })
   .strict()
   .optional();
@@ -104,6 +106,7 @@ export interface Listing {
     berthosUrl?: string;
     sku?: string;
     nodeId?: string;
+    leaseToken?: string;
   };
   class?: string;
   eligibility?: EligibilityAttestation;
@@ -161,6 +164,15 @@ export function requireDesktopEligibility(input: CreateListingInput): Eligibilit
   }
   assertAllowedClass(input.eligibility.class, "eligibility.class");
   return input.eligibility;
+}
+
+/** Strip pairing secrets before a listing leaves the process. */
+export function publicListing(listing: Listing): Listing {
+  if (!listing.fulfillment || listing.fulfillment.leaseToken === undefined) {
+    return listing;
+  }
+  const { leaseToken: _token, ...fulfillment } = listing.fulfillment;
+  return { ...listing, fulfillment };
 }
 
 export function parseCreateListing(body: unknown): CreateListingInput {

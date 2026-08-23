@@ -9,6 +9,8 @@ export interface MarketStore {
   getWallet(id: string): Promise<Wallet | undefined>;
   getWalletByAddress(address: string): Promise<Wallet | undefined>;
   putReceipt(receipt: Receipt): Promise<void>;
+  getReceipt(id: string): Promise<Receipt | undefined>;
   listReceipts(listingId?: string): Promise<Receipt[]>;
   consumeNonce(nonce: string): Promise<boolean>;
+  hasNonce(nonce: string): Promise<boolean>;
 }

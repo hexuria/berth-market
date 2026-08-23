@@ -1,7 +1,9 @@
 import { CdpWalletAdapter } from "./adapters/cdp-wallet.js";
 import { HttpBerthosEligibilityClient } from "./adapters/http-eligibility.js";
+import { HttpBerthosLeaseClient } from "./adapters/http-lease.js";
 import { LiveFacilitator } from "./adapters/live-facilitator.js";
 import { MemoryEligibilityClient } from "./adapters/memory-eligibility.js";
+import { MemoryLeaseClient } from "./adapters/memory-lease.js";
 import { MemoryStore } from "./adapters/memory-store.js";
 import { MemoryWalletAdapter } from "./adapters/memory-wallet.js";
 import { TestFacilitator } from "./adapters/test-facilitator.js";
@@ -10,6 +12,7 @@ import type { MarketDependencies } from "./deps.js";
 import { createRouter } from "./http/routes.js";
 import type { EligibilityClient } from "./ports/eligibility.js";
 import type { FacilitatorPort } from "./ports/facilitator.js";
+import type { LeaseClient } from "./ports/lease.js";
 import type { MarketStore } from "./ports/store.js";
 import type { WalletPort } from "./ports/wallet.js";
 
@@ -21,6 +24,7 @@ export interface CreateAppOptions {
   wallets?: WalletPort;
   facilitator?: FacilitatorPort;
   eligibility?: EligibilityClient;
+  leases?: LeaseClient;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
 }
@@ -47,6 +51,16 @@ export async function createApp(options: CreateAppOptions = {}) {
           maxAgeMs: config.attestationMaxAgeMs,
         })
       : new MemoryEligibilityClient({ maxAgeMs: config.attestationMaxAgeMs }));
+  const leases =
+    options.leases ??
+    (config.berthosUrl
+      ? new HttpBerthosLeaseClient({
+          berthosUrl: config.berthosUrl,
+          leaseToken: config.berthosLeaseToken,
+          pairCode: config.berthosPairCode,
+          fetchImpl: options.fetchImpl ?? fetch,
+        })
+      : new MemoryLeaseClient());
 
   const protocolTreasury = await wallets.createTreasury({
     label: config.protocolTreasuryLabel,
@@ -58,6 +72,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     wallets,
     facilitator,
     eligibility,
+    leases,
     protocolTreasury,
   };
 

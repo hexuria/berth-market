@@ -1,4 +1,4 @@
-import { createApp } from "../src/app.js";
+import { createApp, type CreateAppOptions } from "../src/app.js";
 import type { MarketDependencies } from "../src/deps.js";
 import { PAYMENT_REQUIRED_HEADER, decodeX402Header, type PaymentRequired } from "../src/domain/x402.js";
 import { buildTestPayment } from "../src/testing/pay.js";
@@ -9,8 +9,8 @@ export interface TestMarket {
   deps: MarketDependencies;
 }
 
-export async function bootMarket(): Promise<TestMarket> {
-  const { app, deps } = await createApp();
+export async function bootMarket(options: CreateAppOptions = {}): Promise<TestMarket> {
+  const { app, deps } = await createApp(options);
   return { app, deps };
 }
 

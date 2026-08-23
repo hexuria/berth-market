@@ -34,7 +34,16 @@ export class MemoryStore implements MarketStore {
   }
 
   async putReceipt(receipt: Receipt): Promise<void> {
+    const index = this.receipts.findIndex((row) => row.id === receipt.id);
+    if (index >= 0) {
+      this.receipts[index] = receipt;
+      return;
+    }
     this.receipts.push(receipt);
+  }
+
+  async getReceipt(id: string): Promise<Receipt | undefined> {
+    return this.receipts.find((row) => row.id === id);
   }
 
   async listReceipts(listingId?: string): Promise<Receipt[]> {
@@ -45,5 +54,9 @@ export class MemoryStore implements MarketStore {
     if (this.nonces.has(nonce)) return false;
     this.nonces.add(nonce);
     return true;
+  }
+
+  async hasNonce(nonce: string): Promise<boolean> {
+    return this.nonces.has(nonce);
   }
 }
