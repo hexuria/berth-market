@@ -20,7 +20,7 @@ export const WALLET_ADAPTER_ENV = "WALLET_ADAPTER";
  * Intended mapping (do not invent a second ledger):
  * - Treasury = CDP EVM smart account with `enableSpendPermissions: true`
  * - Agent    = spender EOA + `cdp.evm.createSpendPermission({ token: "usdc", ... })`
- * - Fund     = USDC transfer / faucet on Base (`eip155:8453`)
+ * - Fund     = USDC transfer / faucet on Base (`eip155:8453`) or Sepolia (`eip155:84532`)
  * - Settle   = `useSpendPermission` then split 90/10 to listing.payTo + protocol
  *
  * @see https://docs.cdp.coinbase.com/wallets/using-wallets/spend-permissions

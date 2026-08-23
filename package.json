@@ -2,7 +2,7 @@
   "name": "berth-market",
   "version": "0.1.0",
   "private": true,
-  "description": "Berth Market — agent spend/earn layer. Lists HTTP, MCP, and desktop SKUs; prices them; moves USDC on Base via x402.",
+  "description": "Berth Market — agent spend/earn layer. Lists HTTP, MCP, and desktop SKUs; prices them; moves USDC on Base / Base Sepolia via x402.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -15,11 +15,13 @@
     "lint": "eslint . && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "earn-loop": "tsx src/scripts/earn-loop.ts"
+    "earn-loop": "tsx src/scripts/earn-loop.ts",
+    "sepolia-loop": "tsx src/scripts/sepolia-loop.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
     "hono": "^4.9.6",
+    "viem": "^2.55.19",
     "zod": "^3.24.2"
   },
   "devDependencies": {

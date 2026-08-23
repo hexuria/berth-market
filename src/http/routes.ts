@@ -10,7 +10,13 @@ import {
   requireDesktopEligibility,
   type Listing,
 } from "../domain/listing.js";
-import { normalizeAddress, parseAtomic } from "../domain/money.js";
+import {
+  BASE_CAIP2,
+  BASE_SEPOLIA_CAIP2,
+  normalizeAddress,
+  parseAtomic,
+  splitProceeds,
+} from "../domain/money.js";
 import { WalletError, type Receipt } from "../domain/wallet.js";
 import {
   PAYMENT_REQUIRED_HEADER,
@@ -54,7 +60,9 @@ export function createRouter(deps: MarketDependencies): Hono {
       ok: true,
       service: "berth-market",
       asset: "USDC",
-      network: "eip155:8453",
+      network: BASE_CAIP2,
+      networks: [BASE_CAIP2, BASE_SEPOLIA_CAIP2],
+      stagingNetwork: BASE_SEPOLIA_CAIP2,
       protocolCutBps: 1000,
     }),
   );
@@ -91,7 +99,7 @@ export function createRouter(deps: MarketDependencies): Hono {
       price: {
         amount: input.price.amount,
         asset: "USDC",
-        network: "eip155:8453",
+        network: input.price.network,
       },
       payTo: normalizeAddress(input.payTo),
       policy: input.policy,
@@ -152,10 +160,7 @@ export function createRouter(deps: MarketDependencies): Hono {
       );
     }
 
-    const payerId = walletIdFromSignature(payload.payload.signature);
-    if (!payerId) {
-      return paymentRequired(c, listing, requirements, "test facilitator requires test:<walletId>");
-    }
+    const testPayerId = walletIdFromSignature(payload.payload.signature);
 
     if (await deps.store.hasNonce(payload.payload.authorization.nonce)) {
       return paymentRequired(
@@ -194,24 +199,63 @@ export function createRouter(deps: MarketDependencies): Hono {
         );
       }
 
-      const payout = await deps.wallets.settleListingPayment({
-        payerId,
-        sellerAddress: listing.payTo,
-        protocolAddress: deps.protocolTreasury.address,
-        amountAtomic: parseAtomic(listing.price.amount),
-      });
+      await deps.store.consumeNonce(payload.payload.authorization.nonce);
+
+      const amountAtomic = parseAtomic(listing.price.amount);
+      const { sellerAtomic, protocolAtomic } = splitProceeds(amountAtomic);
+
+      let payerWalletId: string;
+      let payerAddress: string;
+      let transaction = settlement.transaction;
+
+      if (testPayerId) {
+        const payout = await deps.wallets.settleListingPayment({
+          payerId: testPayerId,
+          sellerAddress: listing.payTo,
+          protocolAddress: deps.protocolTreasury.address,
+          amountAtomic,
+        });
+        payerWalletId = payout.payer.id;
+        payerAddress = payout.payer.address;
+        transaction = settlement.transaction || payout.txHash;
+      } else {
+        // Facilitator-authoritative: MemoryWallet is not on-chain. The settle
+        // tx hash is the money movement; we only record the 90/10 split.
+        const from =
+          settlement.payer ?? verify.payer ?? payload.payload.authorization.from;
+        if (!from) {
+          await abortLease(deps, listing, liveLease);
+          return paymentRequired(
+            c,
+            listing,
+            requirements,
+            "facilitator settle did not identify a payer",
+          );
+        }
+        if (!transaction) {
+          await abortLease(deps, listing, liveLease);
+          return paymentRequired(
+            c,
+            listing,
+            requirements,
+            "facilitator settle returned no transaction hash",
+          );
+        }
+        payerAddress = normalizeAddress(from);
+        payerWalletId = `eoa:${payerAddress}`;
+      }
 
       const receipt: Receipt = {
         id: newId("rct"),
         listingId: listing.id,
-        payerWalletId: payout.payer.id,
-        payerAddress: payout.payer.address,
+        payerWalletId,
+        payerAddress,
         sellerAddress: listing.payTo,
         protocolAddress: deps.protocolTreasury.address,
         amountAtomic: listing.price.amount,
-        sellerAtomic: payout.sellerAtomic.toString(),
-        protocolAtomic: payout.protocolAtomic.toString(),
-        transaction: settlement.transaction || payout.txHash,
+        sellerAtomic: sellerAtomic.toString(),
+        protocolAtomic: protocolAtomic.toString(),
+        transaction,
         network: listing.price.network,
         createdAt: nowIso(),
       };
@@ -363,6 +407,7 @@ function quoteFor(listing: Listing): PaymentRequirements {
     amountAtomic: listing.price.amount,
     payTo: listing.payTo,
     listingId: listing.id,
+    network: listing.price.network,
   });
 }
 

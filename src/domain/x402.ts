@@ -10,7 +10,12 @@
  * @see https://github.com/x402-foundation/x402/blob/main/specs/transports-v2/http.md
  */
 
-import { BASE_CAIP2, USDC_BASE_ADDRESS } from "./money.js";
+import {
+  BASE_CAIP2,
+  usdcAddressFor,
+  usdcEip712For,
+  type SupportedCaip2,
+} from "./money.js";
 
 export const X402_VERSION = 2 as const;
 
@@ -19,7 +24,7 @@ export const PAYMENT_SIGNATURE_HEADER = "PAYMENT-SIGNATURE";
 export const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
 
 export type X402Scheme = "exact";
-export type X402Network = typeof BASE_CAIP2;
+export type X402Network = SupportedCaip2;
 
 export interface ResourceInfo {
   url: string;
@@ -107,18 +112,22 @@ export function defaultUsdcRequirements(input: {
   amountAtomic: string;
   payTo: string;
   listingId?: string;
+  network?: X402Network;
 }): PaymentRequirements {
+  const network = input.network ?? BASE_CAIP2;
+  const eip712 = usdcEip712For(network);
   return {
     scheme: "exact",
-    network: BASE_CAIP2,
+    network,
     amount: input.amountAtomic,
-    asset: USDC_BASE_ADDRESS,
+    asset: usdcAddressFor(network),
     payTo: input.payTo,
     maxTimeoutSeconds: 60,
     extra: {
-      name: "USDC",
-      version: "2",
+      name: eip712.name,
+      version: eip712.version,
       listingId: input.listingId,
+      assetTransferMethod: "eip3009",
     },
   };
 }
