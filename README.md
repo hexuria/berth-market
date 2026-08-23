@@ -34,6 +34,8 @@ npm start              # http://127.0.0.1:8787
 
 CI needs no secrets. The default adapters are in-memory + a test x402 facilitator. `BERTHOS_URL`, `BERTHOS_LEASE_TOKEN`, `FACILITATOR_URL`, and `WALLET_ADAPTER=cdp` are opt-in and unused in CI. `npm run sepolia-loop` is also opt-in: without `STAGING_PAYER_PRIVATE_KEY` and `STAGING_PAY_TO` it prints a skip and exits 0. No live Coinbase keys, no mainnet USDC.
 
+Two-role demo (host parks in [berthos](https://github.com/hexuria/berthos); buyer pays over HTTP here — no marketplace SPA): [docs/DEMO.md](docs/DEMO.md).
+
 ## List an HTTP endpoint
 
 ```bash
@@ -99,6 +101,8 @@ npm run sepolia-loop
 The loop lists a tiny HTTP SKU (1000 atomic = $0.001), quotes 402, signs EIP-3009, and settles. It refuses `NETWORK=eip155:8453`. Desktop is not used here unless you run the main server with `BERTHOS_URL`. Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth) — not required for this loop.
 
 If the key or `STAGING_PAY_TO` is unset, the script prints a skip and exits 0 so CI stays green without secrets.
+
+Proven facilitator-submitted txs (this repo's `src/staging/loop.ts`, not a raw wallet send) and the Basescan checks are in [docs/DEMO.md](docs/DEMO.md#how-we-know-this-is-our-repo). Two-role host/buyer steps: [docs/DEMO.md](docs/DEMO.md).
 
 ## How this talks to Berthos
 
@@ -222,6 +226,8 @@ If the node is down, ineligible, `class=laptop`, or already leased, invoke is 4x
 
 ## Docs
 
+- [docs/DEMO.md](docs/DEMO.md) — two-role walkthrough (host parks in berthos, buyer pays here) and how to prove Sepolia txs went through this repo, not `cast send`
+- [docs/demo/README.md](docs/demo/README.md) — screen-recording placeholder (no binaries)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — ports/adapters, x402, money
 - [docs/LISTING.md](docs/LISTING.md) — schema: kind, price, payTo, policy, eligibility
 - [docs/WALLET.md](docs/WALLET.md) — treasury vs agent, caps, env-flagged CDP adapter
