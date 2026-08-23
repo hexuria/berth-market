@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  BASE_SEPOLIA_CAIP2,
+  DEFAULT_LISTING_NETWORK,
   isEvmAddress,
   parseAtomic,
   parseListingNetwork,
@@ -39,7 +39,7 @@ const evmAddress = z
 
 const networkSchema = z
   .string()
-  .default(BASE_SEPOLIA_CAIP2)
+  .default(DEFAULT_LISTING_NETWORK)
   .transform((value, ctx) => {
     try {
       return parseListingNetwork(value);
@@ -196,8 +196,24 @@ export function publicListing(listing: Listing): Listing {
   return { ...listing, fulfillment };
 }
 
-export function parseCreateListing(body: unknown): CreateListingInput {
-  const parsed = createListingSchema.safeParse(body);
+/** Fill omitted / blank `price.network` from the catalog default. Never overwrite an explicit CAIP-2. */
+export function withDefaultListingNetwork(body: unknown, defaultNetwork: SupportedCaip2): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const record = body as Record<string, unknown>;
+  const price = record.price;
+  if (!price || typeof price !== "object" || Array.isArray(price)) return body;
+  const priceRecord = price as Record<string, unknown>;
+  if (typeof priceRecord.network === "string" && priceRecord.network.trim() !== "") {
+    return body;
+  }
+  return { ...record, price: { ...priceRecord, network: defaultNetwork } };
+}
+
+export function parseCreateListing(
+  body: unknown,
+  defaultNetwork: SupportedCaip2 = DEFAULT_LISTING_NETWORK,
+): CreateListingInput {
+  const parsed = createListingSchema.safeParse(withDefaultListingNetwork(body, defaultNetwork));
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     throw new ListingValidationError(

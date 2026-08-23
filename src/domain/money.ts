@@ -5,6 +5,8 @@ export const USDC_BASE_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 export const USDC_BASE_SEPOLIA_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 export const BASE_CAIP2 = "eip155:8453";
 export const BASE_SEPOLIA_CAIP2 = "eip155:84532";
+/** Catalog / quote default. Mainnet only when the caller sets 8453 / `base`. */
+export const DEFAULT_LISTING_NETWORK = BASE_SEPOLIA_CAIP2;
 
 export const SUPPORTED_CAIP2 = [BASE_CAIP2, BASE_SEPOLIA_CAIP2] as const;
 export type SupportedCaip2 = (typeof SUPPORTED_CAIP2)[number];

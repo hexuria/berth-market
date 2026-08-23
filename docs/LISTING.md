@@ -48,7 +48,7 @@ Eligible doctor classes: `vm-guest`, `dedicated-server` (Berthos), plus market a
 }
 ```
 
-`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10. Omit `price.network` and new listings (and their 402 quotes) default to `eip155:84532` / `base-sepolia`. Mainnet listings still accept an explicit `eip155:8453` and keep that network — existing mainnet rows are not rewritten. Do not send a Sepolia payer at a 8453 quote.
+`price.amount` is **atomic USDC** (6 decimals). `"100000"` is $0.10. Omit `price.network` and new listings (and their 402 quotes) use the catalog `NETWORK` default (`eip155:84532` / Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` when unset). Mainnet listings still accept an explicit `eip155:8453` and keep that network — existing mainnet rows are not rewritten. Do not send a Sepolia payer at a 8453 quote.
 
 ### MCP
 
@@ -102,7 +102,7 @@ Omit `eligibility` on a desktop listing and the market returns `400` with `eligi
 | `kind`         | yes                              | `http` \| `mcp` \| `desktop.linux`                                    |
 | `title`        | yes                              | Catalog name                                                          |
 | `description`  | no                               | Shown on the x402 resource block                                      |
-| `price`        | yes                              | USDC; omit `network` → `eip155:84532`. Explicit `eip155:8453` is kept. |
+| `price`        | yes                              | USDC; omit `network` → catalog `NETWORK` (unset → `eip155:84532`). Explicit `eip155:8453` is kept. |
 | `payTo`        | yes                              | Seller treasury address (0x, 20 bytes)                                |
 | `policy`       | no                               | Seller-defined limits; stored, not enforced beyond documentation      |
 | `endpoint`     | http / mcp                       | Where the buyer calls after paying                                    |

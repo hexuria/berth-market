@@ -36,7 +36,7 @@ CI needs no secrets. The default adapters are in-memory + a test x402 facilitato
 
 Two-role demo (host parks in [berthos](https://github.com/hexuria/berthos); buyer pays over HTTP here — no marketplace SPA): [docs/DEMO.md](docs/DEMO.md). Browser UI: [hexuria/berth-web](https://github.com/hexuria/berth-web) on Vite `:5173` / `:5174`. This process answers `OPTIONS` and loopback CORS so that UI can call `:8787` without a proxy.
 
-New listings that omit `price.network` (and quotes for those listings) default to **Base Sepolia** (`eip155:84532`). A listing that already sets `eip155:8453` is stored and quoted as mainnet — it is not rewritten.
+New listings that omit `price.network` (and quotes for those listings) default to **Base Sepolia** (`eip155:84532`, Circle USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`). Set `NETWORK=eip155:8453` or send that CAIP-2 on the listing to use mainnet. A listing that already sets `eip155:8453` is stored and quoted as mainnet — it is not rewritten.
 
 ## List an HTTP endpoint
 
