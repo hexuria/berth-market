@@ -35,7 +35,7 @@ Isolation, Docker, and hypervisors live in [Berthos](https://github.com/hexuria/
 
 A small [Hono](https://hono.dev) app. `src/index.ts` serves it with `@hono/node-server`. `src/worker.ts` is the same `app.fetch` for a Cloudflare Worker later. Tests call `app.request` — no secrets, no Postgres, no live CDP.
 
-Browser callers ([berth-web](https://github.com/hexuria/berth-web) on Vite `:5173` / `:5174`) need CORS. The Hono app answers `OPTIONS` and allows `CORS_ORIGIN` (comma list). The default is those loopback Vite origins, not `*`. See the README browser section. A Vite proxy is documented there as an alternative (and as the workaround for Berthos `:7432`, which this repo does not serve).
+Browser callers ([berth-web](https://github.com/hexuria/berth-web) on Vite `:5173` / `:5174`) need CORS. The Hono app answers `OPTIONS` and allows `CORS_ORIGIN` (comma list). The default is those loopback Vite origins, not `*`. `GET /health` also reports `walletAdapter` and `facilitator` (`test` | `live`, plus `facilitatorUrl` when set) so the UI can disable `test:` pay against a live CDP / live-facilitator process. See the README browser section. A Vite proxy is documented there as an alternative (and as the workaround for Berthos `:7432`, which this repo does not serve).
 
 Persistence in v1 is an in-memory `MarketStore`. Swap the adapter for SQLite or Postgres without changing routes.
 

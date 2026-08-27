@@ -227,6 +227,8 @@ npm start
 
 Allowed request headers include `Content-Type` and `PAYMENT-SIGNATURE`. `PAYMENT-REQUIRED` and `PAYMENT-RESPONSE` are exposed so the page can read x402 quotes.
 
+`GET /health` reports `walletAdapter` (`memory` | `cdp`) and `facilitator` (`test` | `live`, plus `facilitatorUrl` when set) so a loopback UI can tell MemoryWallet + TestFacilitator from live CDP / a live facilitator. It never includes CDP keys, wallet secrets, or pairing tokens.
+
 **Berthos** (`:7432`) is a different process. This repo does not add Docker or change that node. Until the node allows the web origin, point berth-web at a same-origin Vite proxy instead of `VITE_BERTHOS_URL=http://127.0.0.1:7432`:
 
 ```ts
@@ -261,7 +263,7 @@ Then `VITE_MARKET_URL` / `VITE_BERTHOS_URL` can be `/market` and `/berthos`. Pre
 | POST   | `/wallets/agent`           | Capped child                                 |
 | POST   | `/wallets/:id/fund`       | Test USDC                                    |
 | GET    | `/wallets/:id`             | Balance, cap, spent                          |
-| GET    | `/health`                  | Liveness                                     |
+| GET    | `/health`                  | Liveness + wallet/facilitator identity       |
 
 ## Docs
 
