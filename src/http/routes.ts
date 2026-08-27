@@ -10,13 +10,7 @@ import {
   requireDesktopEligibility,
   type Listing,
 } from "../domain/listing.js";
-import {
-  BASE_CAIP2,
-  BASE_SEPOLIA_CAIP2,
-  normalizeAddress,
-  parseAtomic,
-  splitProceeds,
-} from "../domain/money.js";
+import { normalizeAddress, parseAtomic, splitProceeds } from "../domain/money.js";
 import { WalletError, type Receipt } from "../domain/wallet.js";
 import {
   PAYMENT_REQUIRED_HEADER,
@@ -37,6 +31,7 @@ import type { MarketConfig } from "../config.js";
 import type { MarketDependencies } from "../deps.js";
 import { corsMiddleware } from "./cors.js";
 import { toErrorResponse } from "./errors.js";
+import { publicHealth } from "./health.js";
 
 const createAgentSchema = z.object({
   treasuryId: z.string().min(1).optional(),
@@ -59,18 +54,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
     return c.json(mapped.body, mapped.status as 400);
   });
 
-  app.get("/health", (c) =>
-    c.json({
-      ok: true,
-      service: "berth-market",
-      asset: "USDC",
-      usdcAsset: config.usdcAsset,
-      network: config.network,
-      networks: [BASE_CAIP2, BASE_SEPOLIA_CAIP2],
-      stagingNetwork: BASE_SEPOLIA_CAIP2,
-      protocolCutBps: 1000,
-    }),
-  );
+  app.get("/health", (c) => c.json(publicHealth(deps, config)));
 
   app.post("/listings", async (c) => {
     const input = parseCreateListing(await c.req.json(), config.network);

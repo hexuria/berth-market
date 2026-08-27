@@ -29,6 +29,8 @@ describe("loadConfig defaults", () => {
     const def = loadConfig({});
     expect(def.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(def.usdcAsset).toBe(USDC_BASE_SEPOLIA_ADDRESS);
+    expect(def.walletAdapter).toBe("memory");
+    expect(def.facilitatorUrl).toBeUndefined();
     expect(def.corsOrigins).toEqual([...DEFAULT_CORS_ORIGINS]);
     const mainnet = loadConfig({ NETWORK: BASE_CAIP2 });
     expect(mainnet.network).toBe(BASE_CAIP2);
@@ -41,6 +43,9 @@ describe("loadConfig defaults", () => {
     expect(res.status).toBe(200);
     expect(res.json.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(res.json.usdcAsset).toBe(USDC_BASE_SEPOLIA_ADDRESS);
+    expect(res.json.walletAdapter).toBe("memory");
+    expect(res.json.facilitator).toBe("test");
+    expect(res.json).not.toHaveProperty("facilitatorUrl");
   });
 });
 

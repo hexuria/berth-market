@@ -106,6 +106,8 @@ Production target: [Coinbase Developer Platform](https://docs.cdp.coinbase.com/)
 
 Selected only when **`WALLET_ADAPTER=cdp` and** `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET` are set. If the flag is set without keys, boot **throws** — the live adapter is not constructed. Default boot and every CI test use `MemoryWalletAdapter`. Tests inject a mock `CdpClient`; they never call Coinbase.
 
+`GET /health` reports the wired identity: `walletAdapter` (`memory` | `cdp`), `facilitator` (`test` | `live`), and `facilitatorUrl` when `FACILITATOR_URL` is set. The body is secret-free — no CDP keys, wallet secrets, or spend-permission material.
+
 Live CDP network is **Base Sepolia** (`base-sepolia` / `eip155:84532`) unless `NETWORK` or `CDP_NETWORK` is **explicitly** `base` / `eip155:8453`. Unset `NETWORK` does **not** mean mainnet for this adapter. Catalog `loadConfig` also defaults **new** listings that omit `price.network` to `eip155:84532`. Listings that already set `eip155:8453` are stored and quoted as mainnet — they are not rewritten.
 
 Mapping — wrap CDP, do not invent a second ledger:

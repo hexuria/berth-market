@@ -21,6 +21,8 @@ import { newTxHash } from "./ids.js";
  * `LiveFacilitator` + `npm run sepolia-loop`, not this adapter.
  */
 export class TestFacilitator implements FacilitatorPort {
+  readonly kind = "test" as const;
+
   constructor(private readonly store: MarketStore) {}
 
   async verify(request: FacilitatorVerifyRequest): Promise<VerifyResponse> {
