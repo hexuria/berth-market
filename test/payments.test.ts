@@ -45,11 +45,13 @@ describe("x402 spend then earn", () => {
       sellerAtomic: string;
       protocolAtomic: string;
       sellerAddress: string;
+      onChainSettlement?: string;
     };
     expect(receipt.amountAtomic).toBe("100000");
     expect(receipt.sellerAtomic).toBe("90000");
     expect(receipt.protocolAtomic).toBe("10000");
     expect(receipt.sellerAddress).toBe(treasury.address);
+    expect(receipt.onChainSettlement).toBe("payTo_100");
 
     const sellerAfter = await requestJson(app, "GET", `/wallets/${treasury.id}`);
     const agentAfter = await requestJson(app, "GET", `/wallets/${agent.id}`);
