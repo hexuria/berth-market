@@ -224,7 +224,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
         payerWalletId = payout.payer.id;
         payerAddress = payout.payer.address;
         transaction = settlement.transaction || payout.txHash;
-        onChainSettlement = payout.onChainSettlement;
+        onChainSettlement = payout.onChainSettlement ?? onChainSettlement;
       } else {
         // Public x402 facilitator: one payTo. On-chain USDC is 100% to
         // listing.payTo. 90/10 below is receipt accounting — not a second settle.

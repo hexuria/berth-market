@@ -59,6 +59,8 @@ On **Base Sepolia** there are two honest money paths:
 | Public x402.org facilitator (`FACILITATOR_URL`, `sepolia-loop`) | **100%** to `listing.payTo` (one `payTo`, one settle) | Stored as `sellerAtomic` / `protocolAtomic`. `onChainSettlement=payTo_100`. |
 | `CdpWalletAdapter` (`WALLET_ADAPTER=cdp` + three keys) | **90%** `payTo` + **10%** protocol via `useSpendPermission` then two USDC transfers | Same numbers. `onChainSettlement=cdp_split_90_10`. |
 
+CI `MemoryWallet` + `TestFacilitator` receipts also store `onChainSettlement=payTo_100` (no chain hop).
+
 The public facilitator does not take two `payTo`s. Do not fake a second on-chain hop after that settle. Do not pair live facilitator settle with a CDP re-split.
 
 ## WalletPort

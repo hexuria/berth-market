@@ -51,9 +51,9 @@ export interface Receipt {
   occupancyMinSeconds?: number;
   occupancyUnit?: "seconds";
   /**
-   * On-chain movement. `payTo_100` = public facilitator sent the full amount
-   * to `sellerAddress`. `cdp_split_90_10` = CDP did two USDC transfers.
-   * Omitted for the in-memory test ledger.
+   * On-chain movement. `payTo_100` = public facilitator sent 100% to
+   * `sellerAddress`, or CI MemoryWallet + TestFacilitator (no chain hop).
+   * `cdp_split_90_10` = CDP did two USDC transfers.
    */
   onChainSettlement?: OnChainSettlement;
 }
