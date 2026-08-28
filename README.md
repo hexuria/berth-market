@@ -27,7 +27,7 @@ treasury (human) ──cap──► agent ──402 / pay──► listing ─�
 ```bash
 npm install
 npm test
-npm run earn-loop      # one fake USDC 402 → pay → earn cycle
+npm run earn-loop      # MemoryWallet 402 → pay → earn for HTTP, MCP, and desktop.linux
 npm run sepolia-loop   # opt-in Base Sepolia settle; skips (exit 0) without keys
 npm start              # http://127.0.0.1:8787
 ```

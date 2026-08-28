@@ -61,7 +61,7 @@ export BERTHOS_URL=http://127.0.0.1:7432
 export BERTHOS_LEASE_TOKEN=PASTE_FROM_POST_V1_PAIR
 ```
 
-Leave both unset for CI and for HTTP-only loops. Occupancy quotes printed by berthos are seconds, not a charge. Money is this process.
+Leave both unset for CI and for `npm run earn-loop` (in-process `MemoryEligibilityClient` + `MemoryLeaseClient`). Occupancy quotes printed by berthos are seconds, not a charge. Money is this process.
 
 **Human UI for park / view:** the full operator console (`http://127.0.0.1:7432/`) and `berth view` (node-local noVNC) are on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth) — see that README's "Human path (console)" and `berth view`. hexuria/berthos is the slim portable node (doctor, loopback HTTP, labeled guest). Do not look for a catalog or a wallet in either node repo.
 
@@ -112,7 +112,7 @@ curl -s http://127.0.0.1:8787/receipts/RECEIPT_ID
 
 `POST /receipts/:id/end` on an HTTP receipt is `400 no_lease` — there is no guest to destroy. That route is for desktop.
 
-One-command fake cycle (no keys, no chain):
+One-command fake cycle (no keys, no chain). Pays **HTTP**, **MCP**, and **desktop.linux** on `MemoryWallet` + `TestFacilitator`, then `POST /receipts/:id/end` for the desktop lease (`chargedHere: false`). Laptop / host-desktop are refused. No `BERTHOS_URL` required:
 
 ```bash
 npm run earn-loop
