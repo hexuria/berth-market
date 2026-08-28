@@ -18,7 +18,7 @@ import {
   type PaymentRequired,
 } from "../src/domain/x402.js";
 import { PUBLIC_X402_FACILITATOR_URL, STAGING_AMOUNT_ATOMIC, resolveStagingLoopEnv } from "../src/staging/env.js";
-import { runSepoliaLoop } from "../src/staging/loop.js";
+import { runSepoliaLoop, sepoliaLoopAppEnv } from "../src/staging/loop.js";
 import { signExactEvmPayment } from "../src/staging/signer.js";
 import { bootMarket, httpListing, requestJson } from "./helpers.js";
 
@@ -201,85 +201,150 @@ describe("sepolia-loop", () => {
     expect(() => resolveStagingLoopEnv({ NETWORK: "base" })).toThrow(/refuses mainnet/);
   });
 
-  it("defaults FACILITATOR_URL to the public x402.org facilitator and never quotes 8453", async () => {
+  it("pays HTTP, MCP, and desktop.linux via mocked LiveFacilitator and never quotes 8453", async () => {
     const privateKey = generatePrivateKey();
     const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const lines: string[] = [];
     const result = await runSepoliaLoop({
       env: {
         STAGING_PAYER_PRIVATE_KEY: privateKey,
         STAGING_PAY_TO: "0x1111111111111111111111111111111111111111",
         NETWORK: "base-sepolia",
+        WALLET_ADAPTER: "cdp",
+        BERTHOS_URL: "http://127.0.0.1:7432",
+        BERTHOS_LEASE_TOKEN: "must-not-be-used",
+        CDP_API_KEY_ID: "must-not-be-used",
+        CDP_API_KEY_SECRET: "must-not-be-used",
+        CDP_WALLET_SECRET: "must-not-be-used",
       },
       fetchImpl: mockFacilitatorFetch(calls, "0xlooptx"),
+      log: (line) => lines.push(line),
     });
     expect(result.skipped).toBe(false);
     if (result.skipped) throw new Error("expected a live (mocked) settle");
     expect(result.facilitatorUrl).toBe(PUBLIC_X402_FACILITATOR_URL);
-    expect(result.receipt.network).toBe(BASE_SEPOLIA_CAIP2);
-    expect(result.receipt.transaction).toBe("0xlooptx");
-    expect(result.receipt.sellerAtomic).toBe("900");
-    expect(result.receipt.protocolAtomic).toBe("100");
-    expect(result.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.protocolBalanceAtomic).toBe("0");
+
+    expect(result.http.kind).toBe("http");
+    expect(result.http.receipt.network).toBe(BASE_SEPOLIA_CAIP2);
+    expect(result.http.receipt.transaction).toBe("0xlooptx");
+    expect(result.http.receipt.sellerAtomic).toBe("900");
+    expect(result.http.receipt.protocolAtomic).toBe("100");
+    expect(result.http.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.http.receipt.leaseId).toBeUndefined();
+
+    expect(result.mcp.kind).toBe("mcp");
+    expect(result.mcp.receipt.amountAtomic).toBe(STAGING_AMOUNT_ATOMIC);
+    expect(result.mcp.receipt.sellerAtomic).toBe("900");
+    expect(result.mcp.receipt.protocolAtomic).toBe("100");
+    expect(result.mcp.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.mcp.receipt.leaseId).toBeUndefined();
+    const mcpFulfillment = result.mcp.fulfillment as {
+      kind: string;
+      tool: string;
+      result: { proxied: boolean };
+      endpoint: { url: string; tool: string };
+    };
+    expect(mcpFulfillment.kind).toBe("mcp");
+    expect(mcpFulfillment.tool).toBe("search");
+    expect(mcpFulfillment.result.proxied).toBe(false);
+    expect(mcpFulfillment.endpoint.tool).toBe("search");
+
+    expect(result.desktop.kind).toBe("desktop.linux");
+    expect(result.desktop.receipt.amountAtomic).toBe(STAGING_AMOUNT_ATOMIC);
+    expect(result.desktop.receipt.sellerAtomic).toBe("900");
+    expect(result.desktop.receipt.protocolAtomic).toBe("100");
+    expect(result.desktop.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.desktop.receipt.leaseId).toMatch(/^l_/);
+    expect(result.desktop.occupancy.chargedHere).toBe(false);
+    expect(result.desktop.occupancy.seconds).toBe(12);
+    expect(result.desktop.occupancy.billedSeconds).toBe(60);
+
+    expect(result.refused.laptop).toBe(true);
+    expect(result.refused.hostDesktop).toBe(true);
+
+    const settles = calls.filter((c) => c.url.endsWith("/settle"));
+    expect(settles).toHaveLength(3);
+    expect(calls.filter((c) => c.url.endsWith("/verify"))).toHaveLength(3);
     expect(JSON.stringify(calls)).not.toContain(`"${BASE_CAIP2}"`);
     expect(calls.every((c) => c.url.startsWith(`${PUBLIC_X402_FACILITATOR_URL}/`))).toBe(true);
+
+    const log = lines.join("\n");
+    expect(log).toMatch(/HTTP \+ MCP \+ desktop\.linux/);
+    expect(log).toMatch(/http\s+lst_/);
+    expect(log).toMatch(/mcp\s+lst_/);
+    expect(log).toMatch(/desktop\.linux\s+lst_/);
+    expect(log).toMatch(/proxied=false/);
+    expect(log).toMatch(/no leaseId/);
+    expect(log).toMatch(/leaseId=l_/);
+    expect(log).toMatch(/end-lease\s+occupancy=12s billed=60s chargedHere=false/);
+    expect(log).toMatch(/refused\s+laptop \/ host-desktop/);
+    expect(log).toMatch(/onChainSettlement=payTo_100/);
+    expect(log).not.toMatch(/cdp_split_90_10/);
   });
 
-  it("is honest: public facilitator settle is 100% to payTo; 90/10 is receipt-only", async () => {
+  it("strips Berthos / CDP knobs and forces WALLET_ADAPTER=memory", () => {
+    const env = sepoliaLoopAppEnv(
+      {
+        WALLET_ADAPTER: "cdp",
+        FACILITATOR_URL: "https://example.invalid/facilitator",
+        BERTHOS_URL: "http://127.0.0.1:7432",
+        BERTHOS_LEASE_TOKEN: "tok",
+        CDP_API_KEY_ID: "id",
+        NETWORK: "base-sepolia",
+      },
+      { facilitatorUrl: PUBLIC_X402_FACILITATOR_URL },
+    );
+    expect(env.WALLET_ADAPTER).toBe("memory");
+    expect(env.FACILITATOR_URL).toBe(PUBLIC_X402_FACILITATOR_URL);
+    expect(env.NETWORK).toBe(BASE_SEPOLIA_CAIP2);
+    expect(env.BERTHOS_URL).toBeUndefined();
+    expect(env.BERTHOS_LEASE_TOKEN).toBeUndefined();
+    expect(env.CDP_API_KEY_ID).toBeUndefined();
+  });
+
+  it("is honest: one facilitator settle per kind, 100% to payTo; 90/10 is receipt-only", async () => {
     const privateKey = generatePrivateKey();
     const calls: { url: string; body: Record<string, unknown> }[] = [];
     const payTo = "0x1111111111111111111111111111111111111111";
-    const { app, deps } = await createApp({
-      env: { FACILITATOR_URL: PUBLIC_X402_FACILITATOR_URL },
+    const result = await runSepoliaLoop({
+      env: {
+        STAGING_PAYER_PRIVATE_KEY: privateKey,
+        STAGING_PAY_TO: payTo,
+        NETWORK: "base-sepolia",
+      },
       fetchImpl: mockFacilitatorFetch(calls),
+      log: () => {},
     });
+    expect(result.skipped).toBe(false);
+    if (result.skipped) throw new Error("expected a live (mocked) settle");
 
-    const listed = await requestJson(app, "POST", "/listings", {
-      kind: "http",
-      title: "sepolia.honesty.ping",
-      price: { amount: STAGING_AMOUNT_ATOMIC, asset: "USDC", network: BASE_SEPOLIA_CAIP2 },
-      payTo,
-      endpoint: { url: "https://example.com/sepolia-ping", method: "GET" },
-    });
-    const listing = listed.json.listing as { id: string };
-    const unpaid = await requestJson(app, "GET", `/listings/${listing.id}/invoke`);
-    const quote = unpaid.json.quote as PaymentRequired;
-    const { payload } = await signExactEvmPayment({ privateKey, quote });
-    const paid = await requestJson(app, "GET", `/listings/${listing.id}/invoke`, undefined, {
-      [PAYMENT_SIGNATURE_HEADER]: encodeX402Header(payload),
-    });
-    expect(paid.status).toBe(200);
+    const settles = calls.filter((c) => c.url.endsWith("/settle"));
+    expect(settles).toHaveLength(3);
+    for (const settle of settles) {
+      const requirements = settle.body.paymentRequirements as {
+        amount: string;
+        payTo: string;
+        network: string;
+      };
+      // One payTo, full amount — not 90% + a second protocol settle.
+      expect(requirements.amount).toBe(STAGING_AMOUNT_ATOMIC);
+      expect(requirements.payTo.toLowerCase()).toBe(payTo);
+      expect(requirements.network).toBe(BASE_SEPOLIA_CAIP2);
+    }
 
-    const settle = calls.find((c) => c.url.endsWith("/settle"));
-    expect(settle).toBeTruthy();
-    const requirements = settle?.body.paymentRequirements as {
-      amount: string;
-      payTo: string;
-      network: string;
-    };
-    // One payTo, full amount — not 90% + a second protocol settle.
-    expect(calls.filter((c) => c.url.endsWith("/settle"))).toHaveLength(1);
-    expect(requirements.amount).toBe(STAGING_AMOUNT_ATOMIC);
-    expect(requirements.payTo.toLowerCase()).toBe(payTo);
-    expect(requirements.network).toBe(BASE_SEPOLIA_CAIP2);
+    for (const paid of [result.http, result.mcp, result.desktop]) {
+      expect(paid.receipt.amountAtomic).toBe("1000");
+      expect(paid.receipt.sellerAtomic).toBe("900");
+      expect(paid.receipt.protocolAtomic).toBe("100");
+      expect(BigInt(paid.receipt.sellerAtomic) + BigInt(paid.receipt.protocolAtomic)).toBe(
+        BigInt(paid.receipt.amountAtomic),
+      );
+      expect(paid.receipt.sellerAddress).toBe(payTo);
+      expect(paid.receipt.onChainSettlement).toBe("payTo_100");
+    }
 
-    const receipt = paid.json.receipt as {
-      amountAtomic: string;
-      sellerAtomic: string;
-      protocolAtomic: string;
-      sellerAddress: string;
-      onChainSettlement?: string;
-    };
-    expect(receipt.amountAtomic).toBe("1000");
-    expect(receipt.sellerAtomic).toBe("900");
-    expect(receipt.protocolAtomic).toBe("100");
-    expect(BigInt(receipt.sellerAtomic) + BigInt(receipt.protocolAtomic)).toBe(
-      BigInt(receipt.amountAtomic),
-    );
-    expect(receipt.sellerAddress).toBe(payTo);
-    expect(receipt.onChainSettlement).toBe("payTo_100");
-
-    const protocolAfter = await requestJson(app, "GET", `/wallets/${deps.protocolTreasury.id}`);
-    expect((protocolAfter.json.wallet as { balanceAtomic: string }).balanceAtomic).toBe("0");
+    expect(result.protocolBalanceAtomic).toBe("0");
   });
 
   it("signs a recoverable EIP-3009 TransferWithAuthorization for Base Sepolia USDC", async () => {

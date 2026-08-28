@@ -73,7 +73,7 @@ In-process balances. No keys. Used by tests and `npm run earn-loop`. **Not on-ch
 
 ### Base Sepolia staging (facilitator-authoritative)
 
-`npm run sepolia-loop` signs a real EIP-3009 `PaymentPayload` with `STAGING_PAYER_PRIVATE_KEY` (or `X402_PAYER_PRIVATE_KEY`) and settles through `FACILITATOR_URL` (default `https://x402.org/facilitator` when `NETWORK=base-sepolia`). The public facilitator needs no API key and supports `eip155:84532` only — not Base mainnet.
+`npm run sepolia-loop` lists HTTP, MCP, and desktop.linux, signs a real EIP-3009 `PaymentPayload` with `STAGING_PAYER_PRIVATE_KEY` (or `X402_PAYER_PRIVATE_KEY`), and settles through `FACILITATOR_URL` (default `https://x402.org/facilitator` when `NETWORK=base-sepolia`). Desktop is in-process MemoryEligibility/MemoryLease (no `BERTHOS_URL`). The public facilitator needs no API key and supports `eip155:84532` only — not Base mainnet.
 
 This path does **not** debit `MemoryWallet`. The receipt's `transaction` is the facilitator settle / tx hash. Skip (exit 0) when the key or `STAGING_PAY_TO` is unset so CI stays secret-free.
 
@@ -94,9 +94,9 @@ export STAGING_PAY_TO=0xSELLER_RECEIVER
 npm run sepolia-loop
 ```
 
-Amount is 1000 atomic USDC ($0.001). This is **testnet**, not mainnet. Do not set these vars in CI.
+Amount is 1000 atomic USDC ($0.001) per kind (HTTP, MCP, desktop.linux). This is **testnet**, not mainnet. Do not set these vars in CI.
 
-The settle path is `sepolia-loop` → Hono 402 → EIP-3009 sign → `LiveFacilitator` `POST /settle`. It is **not** `cast send` and not a payer-submitted `transfer()`. On Basescan the tx `from` is the facilitator relayer, `to` is Sepolia USDC, method is `transferWithAuthorization`, and the ERC-20 Transfer is 1000 atomic to `STAGING_PAY_TO` (100% on-chain; 90/10 is receipt-only). How to tick those fields, plus two proven hashes created by `src/staging/loop.ts`: [DEMO.md — How we know this is our repo](DEMO.md#how-we-know-this-is-our-repo). Host vs buyer walkthrough: [DEMO.md](DEMO.md).
+The settle path is `sepolia-loop` → Hono 402 → EIP-3009 sign → `LiveFacilitator` `POST /settle` (once per kind). It is **not** `cast send` and not a payer-submitted `transfer()`. On Basescan the tx `from` is the facilitator relayer, `to` is Sepolia USDC, method is `transferWithAuthorization`, and each ERC-20 Transfer is 1000 atomic to `STAGING_PAY_TO` (100% on-chain; 90/10 is receipt-only). How to tick those fields, plus two proven hashes created by `src/staging/loop.ts`: [DEMO.md — How we know this is our repo](DEMO.md#how-we-know-this-is-our-repo). Host vs buyer walkthrough: [DEMO.md](DEMO.md).
 
 Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth). Not required for the first staging loop.
 

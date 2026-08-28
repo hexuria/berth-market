@@ -28,7 +28,7 @@ treasury (human) ──cap──► agent ──402 / pay──► listing ─�
 npm install
 npm test
 npm run earn-loop      # MemoryWallet 402 → pay → earn for HTTP, MCP, and desktop.linux
-npm run sepolia-loop   # opt-in Base Sepolia settle; skips (exit 0) without keys
+npm run sepolia-loop   # opt-in Base Sepolia settle (HTTP + MCP + desktop.linux); skips (exit 0) without keys
 npm start              # http://127.0.0.1:8787
 ```
 
@@ -100,7 +100,7 @@ export STAGING_PAY_TO=0xSELLER_RECEIVER
 npm run sepolia-loop
 ```
 
-The loop lists a tiny HTTP SKU (1000 atomic = $0.001), quotes 402, signs EIP-3009, and settles. It refuses `NETWORK=eip155:8453`. Desktop is not used here unless you run the main server with `BERTHOS_URL`. Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth) — not required for this loop.
+The loop lists HTTP, MCP, and desktop.linux (1000 atomic = $0.001 each), quotes 402, signs EIP-3009, and settles once per kind. Desktop uses in-process MemoryEligibility/MemoryLease (no `BERTHOS_URL`). Laptop / host-desktop fail closed. It refuses `NETWORK=eip155:8453`. Optional later: CDP facilitator `https://api.cdp.coinbase.com/platform/v2/x402` (needs CDP auth) — not required for this loop.
 
 If the key or `STAGING_PAY_TO` is unset, the script prints a skip and exits 0 so CI stays green without secrets.
 
