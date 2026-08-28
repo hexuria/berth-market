@@ -314,6 +314,7 @@ describe("sepolia-loop", () => {
         NETWORK: "base-sepolia",
       },
       fetchImpl: mockFacilitatorFetch(calls),
+      log: () => {},
     });
     expect(result.skipped).toBe(false);
     if (result.skipped) throw new Error("expected a live (mocked) settle");
