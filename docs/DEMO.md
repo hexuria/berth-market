@@ -77,7 +77,7 @@ This repo. Two honest paths:
 | `npm start` + curl           | Same test facilitator unless `FACILITATOR_URL` is set | No (CI default) |
 | `npm run sepolia-loop`       | Real Base Sepolia USDC via `LiveFacilitator` | Yes, testnet |
 
-`sepolia-loop` lists a tiny **HTTP** SKU only. A `desktop.linux` pay needs `npm start` with `BERTHOS_URL` and a live node (Role A).
+`sepolia-loop` pays **HTTP**, **MCP**, and **desktop.linux** in one run (same catalog kinds as earn-loop). Desktop uses in-process MemoryEligibility/MemoryLease — no `BERTHOS_URL`. A live Berthos guest still needs `npm start` with Role A.
 
 ### HTTP SKU (no Berthos)
 
@@ -147,16 +147,17 @@ export STAGING_PAY_TO=0xSELLER_RECEIVER               # 100% of the on-chain USD
 npm run sepolia-loop
 ```
 
-Amount is `1000` atomic USDC (`$0.001`). If the key or `STAGING_PAY_TO` is unset, the script prints a skip and **exits 0** so CI stays secret-free.
+Amount is `1000` atomic USDC (`$0.001`) per kind — three facilitator settles. If the key or `STAGING_PAY_TO` is unset, the script prints a skip and **exits 0** so CI stays secret-free.
 
 What the script does (see [How we know this is our repo](#how-we-know-this-is-our-repo)):
 
-1. `createApp` with `LiveFacilitator` + `WALLET_ADAPTER=memory`.
-2. `POST /listings` — HTTP SKU `sepolia.staging.ping`, `payTo=STAGING_PAY_TO`.
-3. Unpaid `GET /listings/:id/invoke` → **402**.
+1. `createApp` with `LiveFacilitator` + `WALLET_ADAPTER=memory` + in-process MemoryEligibility/MemoryLease.
+2. `POST /listings` — HTTP, MCP, and desktop.linux (1000 atomic each), `payTo=STAGING_PAY_TO`.
+3. Unpaid `GET /listings/:id/invoke` → **402** (per kind).
 4. Sign EIP-3009 `TransferWithAuthorization` (`src/staging/signer.ts`).
-5. Paid invoke → Hono → `LiveFacilitator` `POST /verify` + `POST /settle`.
-6. Print `listing`, `payer`, `payTo`, `tx=` (facilitator settle hash). Receipt stores 90/10 and `onChainSettlement=payTo_100`.
+5. Paid invoke → Hono → `LiveFacilitator` `POST /verify` + `POST /settle` (one settle per kind, 100% to `payTo`).
+6. Desktop 200 includes `leaseId`; `POST /receipts/:id/end` stores occupancy with `chargedHere=false`. Laptop / host-desktop fail closed.
+7. Print each kind, `payer`, `payTo`, `tx=` (facilitator settle hash). Receipt stores 90/10 and `onChainSettlement=payTo_100`. Protocol MemoryWallet stays 0.
 
 ### Verify on Basescan that the facilitator sent USDC to `payTo`
 
@@ -191,7 +192,7 @@ src/scripts/sepolia-loop.ts
         │
         ▼
 src/staging/loop.ts
-  POST /listings          → listing id lst_…   (newId("lst") in src/adapters/ids.ts)
+  POST /listings          → HTTP + MCP + desktop.linux  (newId("lst") in src/adapters/ids.ts)
   GET  /listings/:id/invoke (no header)        → HTTP 402 + PAYMENT-REQUIRED
   src/staging/signer.ts   EIP-3009 exact/EVM
   GET  /listings/:id/invoke + PAYMENT-SIGNATURE
