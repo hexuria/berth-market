@@ -187,6 +187,21 @@ export function requireDesktopEligibility(input: CreateListingInput): Eligibilit
   return input.eligibility;
 }
 
+/** MCP SKUs are priced here. They need a published tool name — not a live MCP server. */
+export function requireMcpEndpoint(
+  input: CreateListingInput,
+): NonNullable<CreateListingInput["endpoint"]> & { tool: string } {
+  const endpoint = input.endpoint;
+  const tool = endpoint?.tool?.trim();
+  if (!endpoint?.url || !tool) {
+    throw new ListingValidationError(
+      "endpoint_required",
+      "mcp listings require endpoint.url and endpoint.tool",
+    );
+  }
+  return { ...endpoint, tool };
+}
+
 /** Strip pairing secrets before a listing leaves the process. */
 export function publicListing(listing: Listing): Listing {
   if (!listing.fulfillment || listing.fulfillment.leaseToken === undefined) {

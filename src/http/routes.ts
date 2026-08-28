@@ -8,8 +8,10 @@ import {
   parseCreateListing,
   publicListing,
   requireDesktopEligibility,
+  requireMcpEndpoint,
   type Listing,
 } from "../domain/listing.js";
+import { prepareMcpFulfillment, type McpFulfillment } from "../domain/mcp.js";
 import { normalizeAddress, parseAtomic, splitProceeds } from "../domain/money.js";
 import { WalletError, type Receipt } from "../domain/wallet.js";
 import {
@@ -63,6 +65,10 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
     assertAllowedClass(input.eligibility?.class, "eligibility.class");
 
     let eligibility = input.eligibility;
+    let endpoint = input.endpoint;
+    if (input.kind === "mcp") {
+      endpoint = requireMcpEndpoint(input);
+    }
     if (isDesktopKind(input.kind)) {
       const submitted = requireDesktopEligibility(input);
       const decision = await deps.eligibility.verify(submitted);
@@ -92,7 +98,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
       },
       payTo: normalizeAddress(input.payTo),
       policy: input.policy,
-      endpoint: input.endpoint,
+      endpoint,
       fulfillment: input.fulfillment,
       class: input.class,
       eligibility,
@@ -161,6 +167,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
     }
 
     let liveLease: LeaseRecord | undefined;
+    let mcpFulfillment: McpFulfillment | undefined;
     try {
       if (listing.kind === "desktop.linux") {
         const prepared = await prepareDesktopLease(deps, listing);
@@ -171,6 +178,17 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
           );
         }
         liveLease = prepared.lease;
+      }
+
+      if (listing.kind === "mcp") {
+        const prepared = prepareMcpFulfillment(listing);
+        if (!prepared.ok) {
+          return c.json(
+            { error: { code: prepared.code, message: prepared.message } },
+            prepared.status as 400,
+          );
+        }
+        mcpFulfillment = prepared.fulfillment;
       }
 
       const settlement = await deps.facilitator.settle({
@@ -271,7 +289,7 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
       return c.json({
         ok: true,
         listing: { id: listing.id, kind: listing.kind, title: listing.title },
-        fulfillment: fulfillmentBody(listing, liveLease),
+        fulfillment: fulfillmentBody(listing, liveLease, mcpFulfillment),
         receipt,
       });
     } catch (error) {
@@ -464,7 +482,11 @@ async function abortLease(
   }
 }
 
-function fulfillmentBody(listing: Listing, lease: LeaseRecord | undefined) {
+function fulfillmentBody(
+  listing: Listing,
+  lease: LeaseRecord | undefined,
+  mcp?: McpFulfillment,
+) {
   if (listing.kind === "desktop.linux" && lease) {
     return {
       status: "leased",
@@ -475,6 +497,9 @@ function fulfillmentBody(listing: Listing, lease: LeaseRecord | undefined) {
       occupancyUnit: "seconds" as const,
       note: "Isolated Linux guest is live on the Berthos node. End the lease to store occupancy seconds; they are not a second charge.",
     };
+  }
+  if (listing.kind === "mcp" && mcp) {
+    return mcp;
   }
   return {
     status: "accepted",
