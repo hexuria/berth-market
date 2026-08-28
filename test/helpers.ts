@@ -161,6 +161,19 @@ export function httpListing(payTo: string, extra: Record<string, unknown> = {}) 
   };
 }
 
+/** MCP SKU. Omits `price.network` so the catalog default (`eip155:84532`) applies. */
+export function mcpListing(payTo: string, extra: Record<string, unknown> = {}) {
+  return {
+    kind: "mcp",
+    title: "search.web",
+    description: "demo",
+    price: { amount: "100000", asset: "USDC" },
+    payTo,
+    endpoint: { url: "https://mcp.example.com/sse", method: "POST", tool: "search" },
+    ...extra,
+  };
+}
+
 export function desktopListing(payTo: string, extra: Record<string, unknown> = {}) {
   return {
     kind: "desktop.linux",
