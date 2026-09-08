@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { earnLoopSmokeEnv, runEarnLoop } from "../src/earn/loop.js";
 
 describe("earn-loop MemoryWallet smoke", () => {
@@ -23,6 +24,8 @@ describe("earn-loop MemoryWallet smoke", () => {
     expect(result.http.receipt.protocolAtomic).toBe("10000");
     expect(result.http.receipt.onChainSettlement).toBe("payTo_100");
     expect(result.http.receipt.onChainSettlement).not.toBe("cdp_split_90_10");
+    expect(result.http.receipt.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(result.http.receipt.transaction)).toBe(false);
     expect(result.http.receipt.leaseId).toBeUndefined();
 
     expect(result.mcp.kind).toBe("mcp");
@@ -30,6 +33,8 @@ describe("earn-loop MemoryWallet smoke", () => {
     expect(result.mcp.receipt.sellerAtomic).toBe("90000");
     expect(result.mcp.receipt.protocolAtomic).toBe("10000");
     expect(result.mcp.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.mcp.receipt.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(result.mcp.receipt.transaction)).toBe(false);
     expect(result.mcp.receipt.leaseId).toBeUndefined();
     const mcpFulfillment = result.mcp.fulfillment as {
       kind: string;
@@ -45,6 +50,8 @@ describe("earn-loop MemoryWallet smoke", () => {
     expect(result.desktop.receipt.sellerAtomic).toBe("900000");
     expect(result.desktop.receipt.protocolAtomic).toBe("100000");
     expect(result.desktop.receipt.onChainSettlement).toBe("payTo_100");
+    expect(result.desktop.receipt.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(result.desktop.receipt.transaction)).toBe(false);
     expect(result.desktop.receipt.leaseId).toMatch(/^l_/);
     expect(result.desktop.occupancy.chargedHere).toBe(false);
     expect(result.desktop.occupancy.seconds).toBe(12);

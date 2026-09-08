@@ -59,7 +59,7 @@ On **Base Sepolia** there are two honest money paths:
 | Public x402.org facilitator (`FACILITATOR_URL`, `sepolia-loop`) | **100%** to `listing.payTo` (one `payTo`, one settle) | Stored as `sellerAtomic` / `protocolAtomic`. `onChainSettlement=payTo_100`. |
 | `CdpWalletAdapter` (`WALLET_ADAPTER=cdp` + three keys) | **90%** `payTo` + **10%** protocol via `useSpendPermission` then two USDC transfers | Same numbers. `onChainSettlement=cdp_split_90_10`. |
 
-CI `MemoryWallet` + `TestFacilitator` receipts also store `onChainSettlement=payTo_100` (no chain hop).
+CI `MemoryWallet` + `TestFacilitator` receipts also store `onChainSettlement=payTo_100` (no chain hop). Their `transaction` is `tf_settle_…`, never a fake `0x`+64 hex — that shape would 404 on Basescan. Only LiveFacilitator Sepolia and CDP `cdp_split_90_10` store a real chain hash.
 
 The public facilitator does not take two `payTo`s. Do not fake a second on-chain hop after that settle. Do not pair live facilitator settle with a CDP re-split.
 
@@ -69,7 +69,7 @@ Routes never talk to Coinbase directly. They call `WalletPort`.
 
 ### `MemoryWalletAdapter` (v1 default)
 
-In-process balances. No keys. Used by tests and `npm run earn-loop`. **Not on-chain.** CI always uses this adapter.
+In-process balances. No keys. Used by tests and `npm run earn-loop`. **Not on-chain.** Listing settles write `tf_settle_…`, not an explorer hash. CI always uses this adapter.
 
 ### Base Sepolia staging (facilitator-authoritative)
 

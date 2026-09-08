@@ -10,15 +10,16 @@ import type {
 import { X402_VERSION } from "../domain/x402.js";
 import type { FacilitatorPort } from "../ports/facilitator.js";
 import type { MarketStore } from "../ports/store.js";
-import { newTxHash } from "./ids.js";
+import { newOffChainSettleId } from "./ids.js";
 
 /**
  * In-process x402 facilitator for tests and `npm run earn-loop`.
  *
  * Accepts signatures of the form `test:<walletId>` (or any `test:` prefix)
  * when the payload amount/asset/payTo match the quote. Replay is blocked
- * via store nonces. Does not talk to a chain. Live Sepolia settle uses
- * `LiveFacilitator` + `npm run sepolia-loop`, not this adapter.
+ * via store nonces. Does not talk to a chain. Successful `transaction` is
+ * `tf_settle_…`, never a fake `0x`+64 hex (that shape 404s on Basescan).
+ * Live Sepolia settle uses `LiveFacilitator` + `npm run sepolia-loop`.
  */
 export class TestFacilitator implements FacilitatorPort {
   readonly kind = "test" as const;
@@ -59,7 +60,7 @@ export class TestFacilitator implements FacilitatorPort {
     }
     return {
       success: true,
-      transaction: newTxHash(),
+      transaction: newOffChainSettleId(),
       network: request.paymentRequirements.network,
       payer: verified.payer,
       amount: request.paymentRequirements.amount,

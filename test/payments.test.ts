@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { PAYMENT_RESPONSE_HEADER } from "../src/domain/x402.js";
 import {
   bootMarket,
@@ -45,6 +46,7 @@ describe("x402 spend then earn", () => {
       sellerAtomic: string;
       protocolAtomic: string;
       sellerAddress: string;
+      transaction: string;
       onChainSettlement?: string;
     };
     expect(receipt.amountAtomic).toBe("100000");
@@ -52,6 +54,8 @@ describe("x402 spend then earn", () => {
     expect(receipt.protocolAtomic).toBe("10000");
     expect(receipt.sellerAddress).toBe(treasury.address);
     expect(receipt.onChainSettlement).toBe("payTo_100");
+    expect(receipt.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(receipt.transaction)).toBe(false);
 
     const sellerAfter = await requestJson(app, "GET", `/wallets/${treasury.id}`);
     const agentAfter = await requestJson(app, "GET", `/wallets/${agent.id}`);

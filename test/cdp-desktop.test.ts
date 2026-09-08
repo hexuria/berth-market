@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { MemoryEligibilityClient } from "../src/adapters/memory-eligibility.js";
 import { MemoryLeaseClient } from "../src/adapters/memory-lease.js";
 import { createApp } from "../src/app.js";
@@ -81,6 +82,7 @@ describe("CDP desktop.linux invoke (mocked SDK, no live Coinbase)", () => {
       sellerAddress: string;
       protocolAddress: string;
       network: string;
+      transaction: string;
       onChainSettlement?: string;
       leaseId: string;
       leaseState: string;
@@ -92,6 +94,8 @@ describe("CDP desktop.linux invoke (mocked SDK, no live Coinbase)", () => {
     expect(receipt.protocolAddress).toBe(deps.protocolTreasury.address);
     expect(receipt.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(receipt.onChainSettlement).toBe("cdp_split_90_10");
+    expect(receipt.transaction).toBe(`0x${"ab".repeat(32)}`);
+    expect(isEvmTxHash(receipt.transaction)).toBe(true);
     expect(receipt.leaseId).toBe(fulfillment.leaseId);
     expect(receipt.leaseState).toBe("live");
 

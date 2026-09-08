@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import {
   BASE_CAIP2,
   BASE_SEPOLIA_CAIP2,
@@ -116,6 +117,7 @@ describe("MCP invoke / pay / earn", () => {
       sellerAtomic: string;
       protocolAtomic: string;
       sellerAddress: string;
+      transaction: string;
       onChainSettlement?: string;
       network: string;
     };
@@ -126,6 +128,8 @@ describe("MCP invoke / pay / earn", () => {
     expect(receipt.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(receipt.onChainSettlement).toBe("payTo_100");
     expect(receipt.onChainSettlement).not.toBe("cdp_split_90_10");
+    expect(receipt.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(receipt.transaction)).toBe(false);
 
     const sellerAfter = await requestJson(app, "GET", `/wallets/${treasury.id}`);
     const agentAfter = await requestJson(app, "GET", `/wallets/${agent.id}`);

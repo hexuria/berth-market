@@ -76,9 +76,9 @@ Scheme: `exact` / EIP-3009. Listings choose a network:
 
 Alias `base-sepolia` is accepted on `price.network` / `NETWORK=` and stored as `eip155:84532`. New listings that omit `price.network` default to `NETWORK` (unset → `eip155:84532`). A listing that already set `eip155:8453` is quoted on 8453 — it is not rewritten to Sepolia. Staging traffic must not use `8453`.
 
-`TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (`POST /verify` + `POST /settle` with the v2 `{ x402Version, paymentPayload, paymentRequirements }` body). Tests never call that URL unless `fetch` is mocked.
+`TestFacilitator` is the default. It accepts `test:<walletId>` signatures so CI and `npm run earn-loop` complete a spend/earn loop without a chain. Successful settles emit `tf_settle_…`, never a fake `0x`+64 hex. Set `FACILITATOR_URL` to swap in `LiveFacilitator` (`POST /verify` + `POST /settle` with the v2 `{ x402Version, paymentPayload, paymentRequirements }` body). Tests never call that URL unless `fetch` is mocked.
 
-A live Sepolia payment through the public facilitator does **not** debit `MemoryWallet`. The receipt stores the facilitator settle tx hash. On-chain USDC is **100%** to `payTo` (`onChainSettlement=payTo_100`); 90/10 is receipt accounting. The public facilitator has one `payTo` — we do not invent a second settle.
+A live Sepolia payment through the public facilitator does **not** debit `MemoryWallet`. The receipt stores the facilitator settle tx hash. On-chain USDC is **100%** to `payTo` (`onChainSettlement=payTo_100`); 90/10 is receipt accounting. The public facilitator has one `payTo` — we do not invent a second settle. MemoryWallet / TestFacilitator receipts use the same `payTo_100` accounting flag but are **not** on-chain (`transaction` is `tf_settle_…`). Only LiveFacilitator Sepolia and CDP `cdp_split_90_10` touch a chain.
 
 `CdpWalletAdapter` (`WALLET_ADAPTER=cdp` + three keys) is the other ledger: `@coinbase/cdp-sdk` on **Base Sepolia** by default, `useSpendPermission` then two USDC transfers (90/10). CI never constructs it and never calls Coinbase.
 
@@ -89,7 +89,7 @@ Amounts are atomic USDC (6 decimals) stored as decimal strings. On a successful 
 1. Debits the paying agent (balance **and** remaining spend cap).
 2. Credits `listing.payTo` with 90%.
 3. Credits the protocol treasury with 10%.
-4. Writes a receipt.
+4. Writes a receipt. MemoryWallet / TestFacilitator store `tf_settle_…` (not on-chain). `onChainSettlement=payTo_100` is receipt accounting. Only LiveFacilitator Sepolia and CDP `cdp_split_90_10` write a real chain hash.
 
 There is no Berth token. There is no L1 of our own.
 

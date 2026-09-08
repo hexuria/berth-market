@@ -1,6 +1,6 @@
 # Two-role demo
 
-This is the honest walkthrough. The market surface is HTTP on `:8787` (`npm start`) plus two scripts (`npm run earn-loop`, `npm run sepolia-loop`). The public host/buyer page is **[hexuria/berth-web](https://github.com/hexuria/berth-web)** (Vite `:5173` / `:5174`). Isolation lives in **[hexuria/berthos](https://github.com/hexuria/berthos)**. The existing human console and `berth view` live in **[codeitlikemiley/berth](https://github.com/codeitlikemiley/berth)** — guest view/MCP is being added on berthos.
+This is the honest walkthrough. The market surface is HTTP on `:8787` (`npm start`) plus two scripts (`npm run earn-loop`, `npm run sepolia-loop`). The public host/buyer page is **[hexuria/berth-web](https://github.com/hexuria/berth-web)** (Vite `:5173` / `:5174`). Isolation lives in **[hexuria/berthos](https://github.com/hexuria/berthos)**. Lease-scoped guest view + `berth mcp` already ship on berthos main ([hexuria/berthos#3](https://github.com/hexuria/berthos/pull/3)). The original full operator console also lives in **[codeitlikemiley/berth](https://github.com/codeitlikemiley/berth)**.
 
 This process answers **loopback CORS + OPTIONS** so berth-web can `fetch` `:8787` (`GET`/`POST` `/listings`, invoke, receipts). `CORS_ORIGIN` defaults to the Vite loopback ports, not `*`. `curl` never needed that; a browser on `:5174` did. Berthos `:7432` is a different server — use that node's CORS or the Vite proxy documented in the README.
 
@@ -16,7 +16,7 @@ never host-desktop / laptop      POST /receipts/:id/end (desktop only)
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Spend/earn UI                                      | HTTP + scripts here. Browser page is [hexuria/berth-web](https://github.com/hexuria/berth-web) (needs CORS on this process). |
 | Host / park UI                                     | [hexuria/berthos](https://github.com/hexuria/berthos) CLI (`berth doctor`, `berth node up`, pair).     |
-| Guest view / MCP                                   | Being added on berthos. Full console + `berth view` already exist on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). |
+| Guest view / MCP                                   | Lease-scoped `berth view` + `berth mcp` ship on [hexuria/berthos](https://github.com/hexuria/berthos) ([#3](https://github.com/hexuria/berthos/pull/3)). Full operator console also on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). |
 | Staging chain                                      | Base Sepolia `eip155:84532`. Public facilitator `https://x402.org/facilitator`.                       |
 | On-chain transfer (public facilitator)             | **100%** to `payTo`. 90/10 is **receipt accounting** (`onChainSettlement=payTo_100`).                 |
 | CDP wallets                                        | Wired via `@coinbase/cdp-sdk` when `WALLET_ADAPTER=cdp` **and** the three keys are set. Default + CI stay `MemoryWalletAdapter`. Live network is Sepolia unless `NETWORK`/`CDP_NETWORK` is explicitly `base`. Staging loop forces `WALLET_ADAPTER=memory`. |
@@ -63,7 +63,7 @@ export BERTHOS_LEASE_TOKEN=PASTE_FROM_POST_V1_PAIR
 
 Leave both unset for CI and for `npm run earn-loop` (in-process `MemoryEligibilityClient` + `MemoryLeaseClient`). Occupancy quotes printed by berthos are seconds, not a charge. Money is this process.
 
-**Human UI for park / view:** the full operator console (`http://127.0.0.1:7432/`) and `berth view` (node-local noVNC) are on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth) — see that README's "Human path (console)" and `berth view`. hexuria/berthos is the slim portable node (doctor, loopback HTTP, labeled guest). Do not look for a catalog or a wallet in either node repo.
+**Human UI for park / view:** hexuria/berthos ships lease-scoped `berth view` (loopback guest noVNC) and `berth mcp` (screenshot / click / type / key / end) — [hexuria/berthos#3](https://github.com/hexuria/berthos/pull/3). The original full operator console is on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). Do not look for a catalog or a wallet in either node repo.
 
 ---
 
@@ -71,11 +71,13 @@ Leave both unset for CI and for `npm run earn-loop` (in-process `MemoryEligibili
 
 This repo. Two honest paths:
 
-| Path                         | What settles                         | Chain?        |
-| ---------------------------- | ------------------------------------ | ------------- |
-| `npm run earn-loop`          | In-process `TestFacilitator` + fake USDC | No         |
-| `npm start` + curl           | Same test facilitator unless `FACILITATOR_URL` is set | No (CI default) |
-| `npm run sepolia-loop`       | Real Base Sepolia USDC via `LiveFacilitator` | Yes, testnet |
+| Path                         | What settles                         | Chain?        | `receipt.transaction` |
+| ---------------------------- | ------------------------------------ | ------------- | --------------------- |
+| `npm run earn-loop`          | In-process `TestFacilitator` + fake USDC | No         | `tf_settle_…` (not a Basescan hash) |
+| `npm start` + curl           | Same test facilitator unless `FACILITATOR_URL` is set | No (CI default) | `tf_settle_…` |
+| `npm run sepolia-loop`       | Real Base Sepolia USDC via `LiveFacilitator` | Yes, testnet | Live settle hash |
+
+`onChainSettlement=payTo_100` is receipt accounting on all three rows. Only LiveFacilitator Sepolia and CDP `cdp_split_90_10` touch a chain. MemoryWallet / TestFacilitator never emit a fake `0x`+64 hex.
 
 `sepolia-loop` pays **HTTP**, **MCP**, and **desktop.linux** in one run (same catalog kinds as earn-loop). Desktop uses in-process MemoryEligibility/MemoryLease — no `BERTHOS_URL`. A live Berthos guest still needs `npm start` with Role A.
 
@@ -105,7 +107,7 @@ curl -s http://127.0.0.1:8787/listings -X POST \
 curl -i http://127.0.0.1:8787/listings/LISTING_ID/invoke
 
 # 3. Retry with PAYMENT-SIGNATURE (tests / earn-loop use test:<walletId>)
-# 4. 200 + PAYMENT-RESPONSE + receipt { transaction, sellerAtomic 90%, protocolAtomic 10% }
+# 4. 200 + PAYMENT-RESPONSE + receipt { transaction=tf_settle_…, sellerAtomic 90%, protocolAtomic 10% }
 
 curl -s http://127.0.0.1:8787/receipts/RECEIPT_ID
 ```
@@ -267,7 +269,7 @@ Docker is for **Role A** (berthos guest image). This repo is Node 22 + npm. You 
 - [ ] `berth doctor --json` green
 - [ ] `berth node up` on `127.0.0.1:7432`
 - [ ] Pair; confirm `class` is not `laptop`
-- [ ] Optional human UI: [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth) console at `http://127.0.0.1:7432/` and `berth view` — [console docs](https://github.com/codeitlikemiley/berth/blob/main/docs/CONSOLE.md)
+- [ ] Optional human UI: `berth view` / `berth mcp` on [hexuria/berthos](https://github.com/hexuria/berthos); full console also on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth)
 
 ### Paid desktop (this process + live node)
 
@@ -283,6 +285,7 @@ Docker is for **Role A** (berthos guest image). This repo is Node 22 + npm. You 
 - [ ] Commit private keys or paste them into logs / issues
 - [ ] Set `NETWORK=eip155:8453` for staging
 - [ ] Treat `MemoryWallet` or `earn-loop` balances as Sepolia USDC
+- [ ] Treat a TestFacilitator `tf_settle_…` id as a Basescan hash
 - [ ] Treat `cast send` as the market settle path
 - [ ] List or rent `laptop` / `host-desktop`
 
@@ -293,5 +296,5 @@ Docker is for **Role A** (berthos guest image). This repo is Node 22 + npm. You 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — ports, x402 headers, 90/10
 - [WALLET.md](WALLET.md) — treasury vs agent, staging env, env-flagged CDP adapter
 - [LISTING.md](LISTING.md) — `http` / `mcp` / `desktop.linux` schema
-- [hexuria/berthos README](https://github.com/hexuria/berthos/blob/main/README.md) — doctor, node, pair
-- [codeitlikemiley/berth README](https://github.com/codeitlikemiley/berth/blob/main/README.md) — console + `berth view` + MCP
+- [hexuria/berthos README](https://github.com/hexuria/berthos/blob/main/README.md) — doctor, node, pair, lease-scoped `berth view` + `berth mcp`
+- [codeitlikemiley/berth README](https://github.com/codeitlikemiley/berth/blob/main/README.md) — original console + `berth view` + MCP

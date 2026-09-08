@@ -82,11 +82,13 @@ The 402 carries a base64 `PAYMENT-REQUIRED` header (x402 v2). Retry the same URL
 
 On success: `200`, `PAYMENT-RESPONSE`, and a receipt that splits 90/10.
 
+MemoryWallet + TestFacilitator receipts are **not on-chain**. `receipt.transaction` is `tf_settle_…` (never a fake `0x`+64 hex). `onChainSettlement=payTo_100` is receipt accounting. Only LiveFacilitator Sepolia and CDP `cdp_split_90_10` store a real chain hash.
+
 ## Base Sepolia staging (real testnet USDC)
 
 This is **Base Sepolia** (`eip155:84532`), not Base mainnet (`eip155:8453`). Do not send staging traffic to 8453.
 
-`MemoryWallet` + `TestFacilitator` stay the CI default. A funded Sepolia EOA can settle a real x402 payment through the public facilitator. The receipt stores the settle / tx hash. On-chain USDC goes 100% to `STAGING_PAY_TO`; the 90/10 split is receipt accounting (`onChainSettlement=payTo_100`). The public facilitator does not split to a second `payTo`. `WALLET_ADAPTER=cdp` (with the three CDP keys) is the separate spend-permission path — unused in CI and forced off in `sepolia-loop`.
+`MemoryWallet` + `TestFacilitator` stay the CI default. Those receipts use `tf_settle_…` and do not touch a chain. A funded Sepolia EOA can settle a real x402 payment through the public facilitator. The receipt then stores the live settle / tx hash. On-chain USDC goes 100% to `STAGING_PAY_TO`; the 90/10 split is receipt accounting (`onChainSettlement=payTo_100`). The public facilitator does not split to a second `payTo`. `WALLET_ADAPTER=cdp` (with the three CDP keys) is the separate spend-permission path — unused in CI and forced off in `sepolia-loop`.
 
 1. Get a throwaway EOA. Never commit the key. This process never logs it.
 2. Fund **Base Sepolia USDC** from the [Circle faucet](https://faucet.circle.com) or the [Coinbase CDP faucet](https://portal.cdp.coinbase.com/products/faucet). Sepolia ETH (same CDP faucet, or Base's public list) is only needed if you move funds yourself — x402 exact / EIP-3009 is facilitator-sponsored gas.

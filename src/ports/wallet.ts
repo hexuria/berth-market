@@ -7,6 +7,7 @@ export interface CreateAgentInput {
 }
 
 export interface ListingPayout {
+  /** Chain hash when this adapter settled on-chain; `tf_settle_…` for MemoryWallet. */
   txHash: string;
   sellerAtomic: bigint;
   protocolAtomic: bigint;
