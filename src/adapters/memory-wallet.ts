@@ -2,7 +2,7 @@ import { normalizeAddress, splitProceeds } from "../domain/money.js";
 import { WalletError, type Wallet } from "../domain/wallet.js";
 import type { CreateAgentInput, ListingPayout, WalletPort } from "../ports/wallet.js";
 import type { MarketStore } from "../ports/store.js";
-import { newAddress, newId, newTxHash, nowIso } from "./ids.js";
+import { newAddress, newId, newOffChainSettleId, nowIso } from "./ids.js";
 
 function clone(wallet: Wallet): Wallet {
   return { ...wallet };
@@ -105,7 +105,7 @@ export class MemoryWalletAdapter implements WalletPort {
     await this.credit(input.protocolAddress, protocolAtomic);
 
     return {
-      txHash: newTxHash(),
+      txHash: newOffChainSettleId(),
       sellerAtomic,
       protocolAtomic,
       payer: clone(payer),

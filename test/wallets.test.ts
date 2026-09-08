@@ -5,6 +5,7 @@ import {
   resolveCdpNetwork,
   shouldUseCdpWallet,
 } from "../src/adapters/cdp-wallet.js";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { MemoryStore } from "../src/adapters/memory-store.js";
 import { MemoryWalletAdapter } from "../src/adapters/memory-wallet.js";
 import { createApp } from "../src/app.js";
@@ -33,6 +34,30 @@ describe("wallets", () => {
     const funded = await requestJson(app, "POST", `/wallets/${wallet.id}/fund`, { amount: "2500000" });
     expect(funded.status).toBe(200);
     expect((funded.json.wallet as { balanceAtomic: string }).balanceAtomic).toBe("2500000");
+  });
+
+  it("MemoryWallet listing settle uses tf_settle_ not a fake explorer hash", async () => {
+    const wallets = new MemoryWalletAdapter(new MemoryStore());
+    const treasury = await wallets.createTreasury({ label: "seller" });
+    const protocol = await wallets.createTreasury({ label: "protocol" });
+    const agent = await wallets.createAgent({
+      treasuryId: treasury.id,
+      spendCapAtomic: 5_000_000n,
+    });
+    await wallets.fund(agent.id, 2_000_000n);
+
+    const payout = await wallets.settleListingPayment({
+      payerId: agent.id,
+      sellerAddress: treasury.address,
+      protocolAddress: protocol.address,
+      amountAtomic: 100_000n,
+    });
+
+    expect(payout.sellerAtomic).toBe(90_000n);
+    expect(payout.protocolAtomic).toBe(10_000n);
+    expect(payout.onChainSettlement).toBeUndefined();
+    expect(payout.txHash).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(payout.txHash)).toBe(false);
   });
 
   it("rejects a zero spend cap", async () => {
@@ -188,6 +213,8 @@ describe("CdpWalletAdapter (mocked SDK, no live Coinbase)", () => {
     expect(payout.onChainSettlement).toBe("cdp_split_90_10");
     expect(payout.sellerTxHash).toMatch(/^0x/);
     expect(payout.protocolTxHash).toMatch(/^0x/);
+    expect(isEvmTxHash(payout.txHash)).toBe(true);
+    expect(payout.txHash).toBe(`0x${"ab".repeat(32)}`);
 
     const spend = calls.find((row) => row.op === "useSpendPermission");
     expect(spend?.value).toBe("100000");

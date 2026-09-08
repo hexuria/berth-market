@@ -11,9 +11,9 @@ Record each as its own short take. The product is three repos; say which window 
 | Clip | Where | What the viewer should see | What it is not |
 | ---- | ----- | -------------------------- | -------------- |
 | **1. Host parks** | [hexuria/berthos](https://github.com/hexuria/berthos) terminal | `docker build -t berthos-linux-desktop:v1 …`, green `berth doctor --json`, `berth node up` on `127.0.0.1:7432`, pairing code, `berth pair` (or `POST /v1/pair`). Node `class` is `vm-guest` or `dedicated-server`. | Renting the host desktop, Finder, or a laptop chassis as a public node. A berth-market SPA. |
-| **2. Buyer pays** | this repo | Either `npm run sepolia-loop` (402 → EIP-3009 → `tx=0x…`) or `npm start` + unpaid `GET /listings/:id/invoke` (HTTP 402 + `PAYMENT-REQUIRED`) then paid retry (`PAYMENT-SIGNATURE`) → 200 + receipt. Optional: open `receipt.transaction` on [Sepolia Basescan](https://sepolia.basescan.org) and show `transferWithAuthorization` to `payTo`. | A raw `cast send`. A fake in-page ledger. Mainnet `eip155:8453`. |
+| **2. Buyer pays** | this repo | Either `npm run sepolia-loop` (402 → EIP-3009 → `tx=0x…`, open on [Sepolia Basescan](https://sepolia.basescan.org)) or `npm start` / `earn-loop` + unpaid invoke then paid retry → 200 + `tf_settle_…` (off-chain; no explorer link). | A raw `cast send`. Treating MemoryWallet / TestFacilitator `tf_settle_…` as a chain hash. Mainnet `eip155:8453`. |
 | **3. Guest starts** | this repo + live Berthos node | `BERTHOS_URL` set, `desktop.linux` listing, paid invoke returns `fulfillment.leaseId`. Guest is the labeled Linux image, not the operator's cursor. | Docker/hypervisor code in berth-market. A marketplace “VM console” invented here. |
-| **4. View / MCP** | [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth) today | Operator console at `http://127.0.0.1:7432/`, `berth view` (node-local noVNC), and/or `berth mcp`. Say clearly this UI is **that** tree. Guest view/MCP on hexuria/berthos is **being added** — do not imply it already ships there. | A guest viewer hosted by berth-market. Charging occupancy in the node process. |
+| **4. View / MCP** | [hexuria/berthos](https://github.com/hexuria/berthos) | Lease-scoped `berth view` (loopback guest noVNC) and `berth mcp` (screenshot / click / type / key / end) shipped on main ([berthos#3](https://github.com/hexuria/berthos/pull/3)). Original full console also on [codeitlikemiley/berth](https://github.com/codeitlikemiley/berth). | A guest viewer hosted by berth-market. Charging occupancy in the node process. |
 
 Suggested filenames if you store clips outside git: `01-host-parks`, `02-buyer-pays`, `03-guest-starts`, `04-view-mcp`.
 
@@ -28,4 +28,5 @@ Suggested filenames if you store clips outside git: `01-host-parks`, `02-buyer-p
 
 - Two-role steps and proven Sepolia txs: [docs/DEMO.md](../DEMO.md)
 - Host commands: [hexuria/berthos README](https://github.com/hexuria/berthos/blob/main/README.md)
-- Console / `berth view`: [codeitlikemiley/berth README](https://github.com/codeitlikemiley/berth/blob/main/README.md)
+- Guest view / `berth mcp`: [hexuria/berthos README](https://github.com/hexuria/berthos/blob/main/README.md)
+- Original console / `berth view`: [codeitlikemiley/berth README](https://github.com/codeitlikemiley/berth/blob/main/README.md)

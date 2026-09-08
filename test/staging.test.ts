@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { getAddress, verifyTypedData } from "viem";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { LiveFacilitator, joinFacilitatorPath } from "../src/adapters/live-facilitator.js";
 import { createApp } from "../src/app.js";
 import {
@@ -29,7 +30,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function mockFacilitatorFetch(calls: { url: string; body: Record<string, unknown> }[], tx = "0xsepoliatx") {
+const MOCK_SEPOLIA_TX = `0x${"12".repeat(32)}`;
+
+function mockFacilitatorFetch(calls: { url: string; body: Record<string, unknown> }[], tx = MOCK_SEPOLIA_TX) {
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
@@ -131,7 +134,9 @@ describe("facilitator-authoritative Sepolia settle", () => {
       onChainSettlement?: string;
     };
     expect(receipt.network).toBe(BASE_SEPOLIA_CAIP2);
-    expect(receipt.transaction).toBe("0xsepoliatx");
+    expect(receipt.transaction).toBe(MOCK_SEPOLIA_TX);
+    expect(isEvmTxHash(receipt.transaction)).toBe(true);
+    expect(receipt.transaction).not.toMatch(/^tf_settle_/);
     expect(receipt.amountAtomic).toBe("1000");
     expect(receipt.sellerAtomic).toBe("900");
     expect(receipt.protocolAtomic).toBe("100");
@@ -228,6 +233,7 @@ describe("sepolia-loop", () => {
     expect(result.http.kind).toBe("http");
     expect(result.http.receipt.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(result.http.receipt.transaction).toBe("0xlooptx");
+    expect(result.http.receipt.transaction).not.toMatch(/^tf_settle_/);
     expect(result.http.receipt.sellerAtomic).toBe("900");
     expect(result.http.receipt.protocolAtomic).toBe("100");
     expect(result.http.receipt.onChainSettlement).toBe("payTo_100");

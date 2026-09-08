@@ -225,8 +225,13 @@ export function createRouter(deps: MarketDependencies, config: MarketConfig): Ho
         });
         payerWalletId = payout.payer.id;
         payerAddress = payout.payer.address;
-        transaction = settlement.transaction || payout.txHash;
         onChainSettlement = payout.onChainSettlement ?? onChainSettlement;
+        // CDP moved USDC on-chain: keep that hash. TestFacilitator /
+        // MemoryWallet settle ids are `tf_settle_…` and must not look like txs.
+        transaction =
+          payout.onChainSettlement === "cdp_split_90_10" && payout.txHash
+            ? payout.txHash
+            : settlement.transaction || payout.txHash;
       } else {
         // Public x402 facilitator: one payTo. On-chain USDC is 100% to
         // listing.payTo. 90/10 below is receipt accounting — not a second settle.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash } from "../src/adapters/ids.js";
 import { createApp } from "../src/app.js";
 import { BASE_SEPOLIA_CAIP2 } from "../src/domain/money.js";
 import {
@@ -56,6 +57,7 @@ describe("CDP HTTP invoke (mocked SDK, no live Coinbase)", () => {
       sellerAddress: string;
       protocolAddress: string;
       network: string;
+      transaction: string;
       onChainSettlement?: string;
     };
     expect(receipt.amountAtomic).toBe("100000");
@@ -65,6 +67,8 @@ describe("CDP HTTP invoke (mocked SDK, no live Coinbase)", () => {
     expect(receipt.protocolAddress).toBe(deps.protocolTreasury.address);
     expect(receipt.network).toBe(BASE_SEPOLIA_CAIP2);
     expect(receipt.onChainSettlement).toBe("cdp_split_90_10");
+    expect(receipt.transaction).toBe(`0x${"ab".repeat(32)}`);
+    expect(isEvmTxHash(receipt.transaction)).toBe(true);
 
     const spend = calls.find((row) => row.op === "useSpendPermission");
     expect(spend?.value).toBe("100000");

@@ -38,6 +38,11 @@ export interface Receipt {
   amountAtomic: string;
   sellerAtomic: string;
   protocolAtomic: string;
+  /**
+   * Facilitator settle id or chain hash. TestFacilitator / MemoryWallet emit
+   * `tf_settle_…` (not on-chain — never a fake `0x`+64 hex). LiveFacilitator
+   * Sepolia and CDP `cdp_split_90_10` store a real hash.
+   */
   transaction: string;
   network: string;
   createdAt: string;
@@ -52,7 +57,8 @@ export interface Receipt {
   occupancyUnit?: "seconds";
   /**
    * On-chain movement. `payTo_100` = public facilitator sent 100% to
-   * `sellerAddress`, or CI MemoryWallet + TestFacilitator (no chain hop).
+   * `sellerAddress`, or CI MemoryWallet + TestFacilitator (no chain hop;
+   * `transaction` is `tf_settle_…`, not a Basescan hash).
    * `cdp_split_90_10` = CDP did two USDC transfers.
    */
   onChainSettlement?: OnChainSettlement;

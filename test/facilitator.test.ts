@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isEvmTxHash, newOffChainSettleId, newTxHash } from "../src/adapters/ids.js";
 import { LiveFacilitator, createFacilitator, joinFacilitatorPath } from "../src/adapters/live-facilitator.js";
 import { MemoryStore } from "../src/adapters/memory-store.js";
 import { TestFacilitator } from "../src/adapters/test-facilitator.js";
@@ -38,6 +39,59 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("facilitator adapters", () => {
+  it("off-chain settle ids are tf_settle_ and never a fake EVM hash", () => {
+    const id = newOffChainSettleId();
+    expect(id).toMatch(/^tf_settle_[0-9a-f]{20}$/);
+    expect(isEvmTxHash(id)).toBe(false);
+    expect(isEvmTxHash(newTxHash())).toBe(true);
+    expect(isEvmTxHash("0xsepoliatx")).toBe(false);
+    expect(isEvmTxHash(`0x${"ab".repeat(32)}`)).toBe(true);
+  });
+
+  it("TestFacilitator settle emits tf_settle_ not a fake explorer hash", async () => {
+    const store = new MemoryStore();
+    const facilitator = new TestFacilitator(store);
+    const walletAddress = "0x2222222222222222222222222222222222222222";
+    await store.putWallet({
+      id: "wal_test",
+      kind: "agent",
+      address: walletAddress,
+      spendCapAtomic: "5000000",
+      spentAtomic: "0",
+      balanceAtomic: "2000000",
+      createdAt: new Date().toISOString(),
+    });
+
+    const reqs: PaymentRequirements = {
+      ...requirements,
+      extra: { listingId: "lst_weather" },
+    };
+    const pay: PaymentPayload = {
+      x402Version: X402_VERSION,
+      accepted: reqs,
+      payload: {
+        signature: "test:wal_test",
+        authorization: {
+          from: walletAddress,
+          to: reqs.payTo,
+          value: reqs.amount,
+          validAfter: "0",
+          validBefore: "9999999999",
+          nonce: "0xnounce1",
+        },
+      },
+    };
+
+    const settle = await facilitator.settle({
+      x402Version: X402_VERSION,
+      paymentPayload: pay,
+      paymentRequirements: reqs,
+    });
+    expect(settle.success).toBe(true);
+    expect(settle.transaction).toMatch(/^tf_settle_/);
+    expect(isEvmTxHash(settle.transaction)).toBe(false);
+  });
+
   it("keeps TestFacilitator as the default when FACILITATOR_URL is unset", async () => {
     const { deps } = await createApp({ env: {} });
     expect(deps.facilitator).toBeInstanceOf(TestFacilitator);
